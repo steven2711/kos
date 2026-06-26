@@ -25,7 +25,7 @@ import { KosTask } from "../tasks/task-model.js";
 import { Agent, AgentRequest, selectAgent } from "../agents/claude.js";
 
 const ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"];
-const MAX_TURNS = 12;
+const MAX_TURNS = 30;
 const MODEL = "claude-opus-4-8";
 
 async function loadPromptTemplate(): Promise<string> {
