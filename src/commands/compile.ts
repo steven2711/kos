@@ -1,9 +1,11 @@
-/** `kos compile <vaultPath>` — validate + analyse, write reports, refresh tasks. */
+/** `kos compile <vaultPath>` — validate + analyse, plan tasks, write reports. */
 import { compileVault, CompilerResult } from "../core/compiler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
 import {
   renderCompilerReport,
   renderKnowledgeScore,
+  renderTaskGraph,
+  renderExecutionPlan,
 } from "../reports/compiler-report.js";
 import {
   loadTasks,
@@ -13,6 +15,12 @@ import {
   renderOpenTaskQueue,
   isoNow,
 } from "../tasks/task-store.js";
+import {
+  deriveCompilerTasks,
+  inferDependencies,
+  buildTaskGraph,
+} from "../planner/planner.js";
+import { executionPlan } from "../scheduler/scheduler.js";
 import { KosTask } from "../tasks/task-model.js";
 
 export interface CompileOutput {
@@ -21,8 +29,9 @@ export interface CompileOutput {
 }
 
 /**
- * Compile the vault, reconcile derived tasks into the store, and write the
- * three report files. Returns the result + persisted tasks (reused by `run`).
+ * Compile the vault (read-only), let the Planner derive + wire tasks into the
+ * store, then write the report files (validation/score/queues + the Task Graph
+ * and Execution Plan). Returns the result + persisted tasks (reused by `run`).
  */
 export async function compileAndPersist(
   vaultPath: string,
@@ -30,16 +39,22 @@ export async function compileAndPersist(
 ): Promise<CompileOutput> {
   const result = await compileVault(vaultPath);
 
+  // Planner: derive candidate work from the compiler's analysis, merge into the
+  // store, and infer dependencies to construct the task graph.
   const now = isoNow();
   const existing = await loadTasks(vaultPath);
-  const tasks = mergeTasks(existing, result.tasks, now);
+  const derived = deriveCompilerTasks(result.analysis);
+  const tasks = inferDependencies(mergeTasks(existing, derived, now));
   await saveTasks(vaultPath, tasks);
 
   const day = todayISO();
+  const graph = buildTaskGraph(tasks);
+  const plan = executionPlan(tasks);
+
   await writeMetaFile(
     vaultPath,
     "Compiler Report.md",
-    renderCompilerReport(result, day),
+    renderCompilerReport(result, tasks, day),
   );
   await writeMetaFile(
     vaultPath,
@@ -53,6 +68,13 @@ export async function compileAndPersist(
   );
   // Keep the full queue projection fresh too.
   await writeMetaFile(vaultPath, "Task Queue.md", renderTaskQueue(tasks, day));
+  // Planner/Scheduler views of the same tasks.
+  await writeMetaFile(vaultPath, "Task Graph.md", renderTaskGraph(graph, day));
+  await writeMetaFile(
+    vaultPath,
+    "Execution Plan.md",
+    renderExecutionPlan(plan, day),
+  );
 
   if (!opts.quiet) {
     console.log(
@@ -61,7 +83,8 @@ export async function compileAndPersist(
     );
     console.log(
       `Tasks: ${tasks.length} total (${tasks.length - existing.length} new). ` +
-        `Wrote Compiler Report.md, Knowledge Score.md, Open Task Queue.md.`,
+        `Wrote Compiler Report.md, Knowledge Score.md, Open Task Queue.md, ` +
+        `Task Graph.md, Execution Plan.md.`,
     );
   }
 

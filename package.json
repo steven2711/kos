@@ -7,7 +7,7 @@
     "kos": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"require('fs').cpSync('src/agents/prompts','dist/agents/prompts',{recursive:true})\"",
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').cpSync('src/workers/prompts','dist/workers/prompts',{recursive:true})\"",
     "kos": "tsx src/cli.ts",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",

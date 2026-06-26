@@ -10,11 +10,11 @@ import {
   KosTask,
   TaskFile,
   TaskFileSchema,
-  PRIORITY_RANK,
+  TaskSpec,
   nextTaskId,
   taskKey,
 } from "./task-model.js";
-import { TaskSpec } from "./task-generator.js";
+import { sortByPriority } from "../scheduler/scheduler.js";
 
 export function tasksFilePath(vaultPath: string): string {
   return path.join(vaultPath, "90 Meta", "tasks.json");
@@ -74,33 +74,6 @@ export function mergeTasks(
     } as KosTask);
   }
   return result;
-}
-
-/** Order tasks by priority (desc) then creation order (asc). */
-export function sortByPriority(tasks: KosTask[]): KosTask[] {
-  return [...tasks].sort((a, b) => {
-    const pr = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
-    if (pr !== 0) return pr;
-    return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
-  });
-}
-
-/**
- * Select the next actionable task: highest priority `open` task whose
- * dependencies are all `complete`. Returns null if none.
- */
-export function selectNextTask(tasks: KosTask[]): KosTask | null {
-  const completeIds = new Set(
-    tasks.filter((t) => t.status === "complete").map((t) => t.id),
-  );
-  const candidates = sortByPriority(
-    tasks.filter(
-      (t) =>
-        t.status === "open" &&
-        t.dependencies.every((d) => completeIds.has(d)),
-    ),
-  );
-  return candidates[0] ?? null;
 }
 
 /** Update one task in place (by id) returning a new array. */

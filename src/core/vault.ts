@@ -60,6 +60,8 @@ export const GENERATED_META_FILES = new Set([
   "Ingestion Report.md",
   "Task Queue.md",
   "Open Task Queue.md",
+  "Task Graph.md",
+  "Execution Plan.md",
 ]);
 
 export interface VaultDoc {

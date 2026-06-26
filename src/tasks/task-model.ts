@@ -64,6 +64,9 @@ export const TaskFileSchema = z.object({
 
 export type TaskFile = z.infer<typeof TaskFileSchema>;
 
+/** A task spec before the store assigns id/timestamps (used by the Planner). */
+export type TaskSpec = Omit<KosTask, "id" | "createdAt" | "updatedAt">;
+
 export const PRIORITY_RANK: Record<Priority, number> = {
   critical: 3,
   high: 2,

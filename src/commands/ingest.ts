@@ -4,7 +4,7 @@ import path from "node:path";
 import { INBOX_FOLDER } from "../core/vault.js";
 import { writeMetaFile, todayISO, pathExists } from "../core/io.js";
 import { renderIngestionReport } from "../reports/compiler-report.js";
-import { seedIngestTasks } from "../tasks/task-generator.js";
+import { seedIngestTasks, inferDependencies } from "../planner/planner.js";
 import {
   loadTasks,
   saveTasks,
@@ -50,7 +50,7 @@ export async function runIngestCommand(
   const now = isoNow();
   const existing = await loadTasks(vaultPath);
   const seeds = seedIngestTasks(inboxRel);
-  const tasks = mergeTasks(existing, seeds, now);
+  const tasks = inferDependencies(mergeTasks(existing, seeds, now));
   await saveTasks(vaultPath, tasks);
 
   const newCount = tasks.length - existing.length;

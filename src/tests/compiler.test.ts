@@ -6,7 +6,7 @@ import { loadVault, snapshotKernel } from "../core/vault.js";
 import { compileDocs } from "../core/compiler.js";
 import { runRunCommand } from "../commands/run.js";
 import { loadTasks } from "../tasks/task-store.js";
-import { MockAgent } from "../agents/claude.js";
+import { MockWorker } from "../workers/claude.js";
 
 let dir: string;
 
@@ -140,7 +140,7 @@ Only one link [[Does Not Exist]].
 
     const code = await runRunCommand(dir, {
       maxIterations: 1,
-      agent: new MockAgent(),
+      worker: new MockWorker(),
     });
     expect(code).toBe(0);
 

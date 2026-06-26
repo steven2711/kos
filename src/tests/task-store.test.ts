@@ -6,13 +6,10 @@ import {
   loadTasks,
   saveTasks,
   mergeTasks,
-  selectNextTask,
-  sortByPriority,
   updateTask,
   renderOpenTaskQueue,
 } from "../tasks/task-store.js";
-import { KosTask } from "../tasks/task-model.js";
-import { TaskSpec } from "../tasks/task-generator.js";
+import { TaskSpec } from "../tasks/task-model.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -70,40 +67,6 @@ describe("task-store", () => {
     const after = mergeTasks(tasks, [spec()], "t3");
     expect(after).toHaveLength(1);
     expect(after[0].status).toBe("complete");
-  });
-
-  it("selects the highest-priority open task whose deps are complete", () => {
-    const now = "t";
-    let tasks: KosTask[] = mergeTasks(
-      [],
-      [
-        spec({ priority: "low", goal: "a" }),
-        spec({ priority: "critical", goal: "b" }),
-        spec({ priority: "high", goal: "c" }),
-      ],
-      now,
-    );
-    expect(selectNextTask(tasks)!.goal).toBe("b");
-
-    // A critical task blocked by an incomplete dep is skipped.
-    tasks = mergeTasks(
-      [],
-      [
-        spec({ priority: "high", goal: "ready" }),
-        spec({ priority: "critical", goal: "blocked", dependencies: ["T-999"] }),
-      ],
-      now,
-    );
-    expect(selectNextTask(tasks)!.goal).toBe("ready");
-  });
-
-  it("sorts by priority then creation order", () => {
-    const tasks = mergeTasks(
-      [],
-      [spec({ priority: "medium", goal: "m" }), spec({ priority: "critical", goal: "c" })],
-      "t",
-    );
-    expect(sortByPriority(tasks)[0].priority).toBe("critical");
   });
 
   it("renders an open-task queue table", () => {

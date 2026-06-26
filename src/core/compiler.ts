@@ -1,9 +1,10 @@
 /**
- * The knowledge compiler: deterministic checks over the vault, an analysis of
- * what knowledge is missing, a coverage score, and derived task recommendations.
+ * The knowledge compiler: read-only, deterministic checks over the vault, plus a
+ * coverage score and an analysis of what knowledge is missing.
  *
- * This is the v0 realisation of `90 Meta/Validation.md`. It owns the run loop;
- * Claude never decides quality or completion.
+ * This is the v0.5 realisation of `90 Meta/Validation.md`. The compiler does NOT
+ * generate tasks or schedule work — it only reports. The Planner
+ * (`src/planner/planner.ts`) consumes this analysis to produce candidate work.
  */
 import {
   VaultDoc,
@@ -16,8 +17,6 @@ import { resolves } from "./wikilinks.js";
 import { buildGraph, inboundCount, KnowledgeGraph } from "./graph.js";
 import { CompilerIssue, issue, bySeverity } from "./issues.js";
 import { computeScore, ScoreBreakdown } from "./scoring.js";
-import { KosTask } from "../tasks/task-model.js";
-import { deriveCompilerTasks } from "../tasks/task-generator.js";
 
 /** Sections every authored (non-template, non-capture) document must contain. */
 export const REQUIRED_SECTIONS = [
@@ -70,7 +69,6 @@ export interface CompilerResult {
   errors: CompilerIssue[];
   warnings: CompilerIssue[];
   suggestions: CompilerIssue[];
-  tasks: KosTask[];
   analysis: VaultAnalysis;
   docCount: number;
 }
@@ -239,15 +237,12 @@ export function compileDocs(docs: VaultDoc[]): CompilerResult {
     layersTotal: coverage.total,
   });
 
-  const tasks = deriveCompilerTasks(analysis);
-
   return {
     score: scoreBreakdown.score,
     scoreBreakdown,
     errors,
     warnings,
     suggestions,
-    tasks,
     analysis,
     docCount: docs.length,
   };

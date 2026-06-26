@@ -5,6 +5,7 @@
  *   kos validate <vaultPath>
  *   kos ingest   <vaultPath> <inputFile>
  *   kos compile  <vaultPath>
+ *   kos explain  <vaultPath>
  *   kos run      <vaultPath> --max-iterations 3
  */
 import { Command } from "commander";
@@ -12,6 +13,7 @@ import path from "node:path";
 import { runValidateCommand } from "./commands/validate.js";
 import { runIngestCommand } from "./commands/ingest.js";
 import { runCompileCommand } from "./commands/compile.js";
+import { runExplainCommand } from "./commands/explain.js";
 import { runRunCommand } from "./commands/run.js";
 
 function resolveVault(p: string): string {
@@ -51,6 +53,14 @@ async function main(): Promise<void> {
     .description("Validate + analyse the vault; write reports and refresh tasks")
     .action(async (vaultPath: string) => {
       process.exitCode = await runCompileCommand(resolveVault(vaultPath));
+    });
+
+  program
+    .command("explain")
+    .argument("<vaultPath>", "path to the KOS vault")
+    .description("Explain the score, blockers, next task, and remaining work")
+    .action(async (vaultPath: string) => {
+      process.exitCode = await runExplainCommand(resolveVault(vaultPath));
     });
 
   program

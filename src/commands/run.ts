@@ -1,10 +1,12 @@
 /**
  * `kos run <vaultPath> --max-iterations N` — the controlled loop.
  *
- * The compiler owns the loop: it compiles, selects exactly one task, dispatches
- * it to Claude, then re-validates and judges the result. Claude never decides
- * when the project is done and never free-loops. The Kernel is guarded by a
- * before/after content snapshot — any change to `01 Kernel/` fails the task.
+ * The orchestrator wires the subsystems: the Planner refreshes the task graph
+ * (via `compileAndPersist`), the Scheduler selects exactly one task, the Worker
+ * executes it, and the read-only Compiler re-validates and judges the result.
+ * Claude never decides when the project is done and never free-loops. The Kernel
+ * is guarded by a before/after content snapshot — any change to `01 Kernel/`
+ * fails the task.
  */
 import { promises as fs } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -14,22 +16,22 @@ import { validateVault } from "./validate.js";
 import {
   loadTasks,
   saveTasks,
-  selectNextTask,
   updateTask,
   renderOpenTaskQueue,
   renderTaskQueue,
   isoNow,
 } from "../tasks/task-store.js";
+import { selectNextTask } from "../scheduler/scheduler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
 import { KosTask } from "../tasks/task-model.js";
-import { Agent, AgentRequest, selectAgent } from "../agents/claude.js";
+import { Worker, WorkerRequest, selectWorker } from "../workers/claude.js";
 
 const ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"];
 const MAX_TURNS = 30;
 const MODEL = "claude-opus-4-8";
 
 async function loadPromptTemplate(): Promise<string> {
-  const url = new URL("../agents/prompts/documentation-task.md", import.meta.url);
+  const url = new URL("../workers/prompts/documentation-task.md", import.meta.url);
   return fs.readFile(fileURLToPath(url), "utf8");
 }
 
@@ -51,17 +53,17 @@ async function refreshQueues(vaultPath: string, tasks: KosTask[]): Promise<void>
 
 export interface RunOptions {
   maxIterations: number;
-  agent?: Agent; // injectable for tests
+  worker?: Worker; // injectable for tests
 }
 
 export async function runRunCommand(
   vaultPath: string,
   opts: RunOptions,
 ): Promise<number> {
-  const agent = opts.agent ?? selectAgent();
+  const worker = opts.worker ?? selectWorker();
   const template = await loadPromptTemplate();
   console.log(
-    `Starting controlled run: up to ${opts.maxIterations} iteration(s), agent=${agent.name}.`,
+    `Starting controlled run: up to ${opts.maxIterations} iteration(s), worker=${worker.name}.`,
   );
 
   for (let i = 1; i <= opts.maxIterations; i++) {
@@ -86,8 +88,8 @@ export async function runRunCommand(
     await saveTasks(vaultPath, tasks);
     const kernelBefore = await snapshotKernel(vaultPath);
 
-    // 4. Dispatch exactly one task to the agent.
-    const req: AgentRequest = {
+    // 4. Dispatch exactly one task to the worker.
+    const req: WorkerRequest = {
       vaultPath,
       systemPrompt:
         "You are a careful KOS documentation contributor. Do only the assigned task. Never edit 01 Kernel/.",
@@ -97,9 +99,9 @@ export async function runRunCommand(
       model: MODEL,
       task,
     };
-    const agentResult = await agent.runTask(req);
-    if (agentResult.finalText) {
-      console.log(`Agent: ${agentResult.finalText.split("\n")[0].slice(0, 200)}`);
+    const workerResult = await worker.runTask(req);
+    if (workerResult.finalText) {
+      console.log(`Worker: ${workerResult.finalText.split("\n")[0].slice(0, 200)}`);
     }
 
     // 5. Kernel guard.
@@ -110,7 +112,7 @@ export async function runRunCommand(
       await saveTasks(vaultPath, tasks);
       await refreshQueues(vaultPath, tasks);
       console.error(
-        `KERNEL VIOLATION — the agent modified ${changed.length} Kernel file(s): ${changed.join(", ")}. Task ${task.id} failed; stopping.`,
+        `KERNEL VIOLATION — the worker modified ${changed.length} Kernel file(s): ${changed.join(", ")}. Task ${task.id} failed; stopping.`,
       );
       return 1;
     }
@@ -118,7 +120,7 @@ export async function runRunCommand(
     // 6. Re-validate and judge.
     const after = await validateVault(vaultPath, { quiet: true, noReport: true });
     const passed =
-      agentResult.success && after.errors.length <= baselineErrors;
+      workerResult.success && after.errors.length <= baselineErrors;
     now = isoNow();
     tasks = updateTask(
       tasks,
@@ -134,8 +136,8 @@ export async function runRunCommand(
         `Task ${task.id} complete — validation holds (${after.errors.length} error(s), baseline ${baselineErrors}).`,
       );
     } else {
-      const why = !agentResult.success
-        ? agentResult.error ?? "agent did not report success"
+      const why = !workerResult.success
+        ? workerResult.error ?? "worker did not report success"
         : `validation regressed to ${after.errors.length} error(s) (baseline ${baselineErrors})`;
       console.error(`Task ${task.id} failed — ${why}.`);
     }

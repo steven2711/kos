@@ -1,9 +1,10 @@
 /**
- * Agent adapter — the only place the Claude Agent SDK is touched.
+ * Worker runtime — the only place the Claude Agent SDK is touched.
  *
- * `ClaudeAgent` wraps the SDK's `query()` to run exactly one bounded task that
- * may Read/Write/Edit files in the vault. `MockAgent` writes a deterministic,
- * valid document so `kos run` and its tests work offline without API calls.
+ * A Worker executes exactly one bounded task and knows nothing about the task
+ * graph or the schedule. `ClaudeWorker` wraps the SDK's `query()` to run one task
+ * that may Read/Write/Edit files in the vault. `MockWorker` writes a
+ * deterministic, valid document so `kos run` and its tests work offline.
  *
  * Select the mock with `KOS_AGENT=mock` (or when no ANTHROPIC_API_KEY is set).
  */
@@ -11,7 +12,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { KosTask } from "../tasks/task-model.js";
 
-export interface AgentRequest {
+export interface WorkerRequest {
   vaultPath: string;
   systemPrompt: string;
   prompt: string;
@@ -21,22 +22,22 @@ export interface AgentRequest {
   task: KosTask;
 }
 
-export interface AgentResult {
+export interface WorkerResult {
   success: boolean;
   finalText: string;
   error?: string;
 }
 
-export interface Agent {
+export interface Worker {
   readonly name: string;
-  runTask(req: AgentRequest): Promise<AgentResult>;
+  runTask(req: WorkerRequest): Promise<WorkerResult>;
 }
 
-/** Real agent backed by `@anthropic-ai/claude-agent-sdk`. */
-export class ClaudeAgent implements Agent {
+/** Real worker backed by `@anthropic-ai/claude-agent-sdk`. */
+export class ClaudeWorker implements Worker {
   readonly name = "claude";
 
-  async runTask(req: AgentRequest): Promise<AgentResult> {
+  async runTask(req: WorkerRequest): Promise<WorkerResult> {
     let query: any;
     try {
       // Dynamic import so the project builds/tests even if the SDK is absent.
@@ -92,7 +93,7 @@ export class ClaudeAgent implements Agent {
             success = true;
             if (typeof message.result === "string") finalText = message.result;
           } else {
-            error = `agent ended with ${message.subtype}`;
+            error = `worker ended with ${message.subtype}`;
           }
         }
       }
@@ -105,14 +106,14 @@ export class ClaudeAgent implements Agent {
 }
 
 /**
- * Deterministic offline agent. Writes one valid concept document into
+ * Deterministic offline worker. Writes one valid concept document into
  * `04 Domain/` that satisfies the validator (valid frontmatter, required
  * sections, and 5 resolving wikilinks).
  */
-export class MockAgent implements Agent {
+export class MockWorker implements Worker {
   readonly name = "mock";
 
-  async runTask(req: AgentRequest): Promise<AgentResult> {
+  async runTask(req: WorkerRequest): Promise<WorkerResult> {
     const today = new Date().toISOString().slice(0, 10);
     const title = `Generated Concept ${req.task.id}`;
     const rel = path.join("04 Domain", `${title}.md`);
@@ -131,7 +132,7 @@ related: ["[[Knowledge Modeling Guide]]", "[[Linking Standards]]"]
 
 # ${title}
 
-A placeholder concept produced by the offline mock agent for task ${req.task.id}.
+A placeholder concept produced by the offline mock worker for task ${req.task.id}.
 
 ## Purpose
 
@@ -161,16 +162,16 @@ This document was generated to satisfy the task goal: "${req.task.goal}". It fol
     await fs.writeFile(abs, content, "utf8");
     return {
       success: true,
-      finalText: `Mock agent created ${rel} for task ${req.task.id}.`,
+      finalText: `Mock worker created ${rel} for task ${req.task.id}.`,
     };
   }
 }
 
-/** Choose the agent implementation based on env. */
-export function selectAgent(): Agent {
+/** Choose the worker implementation based on env. */
+export function selectWorker(): Worker {
   const forced = process.env.KOS_AGENT?.toLowerCase();
-  if (forced === "mock") return new MockAgent();
-  // Default: the real Claude agent. It authenticates via your Claude Code
+  if (forced === "mock") return new MockWorker();
+  // Default: the real Claude worker. It authenticates via your Claude Code
   // subscription (no API key needed). Use KOS_AGENT=mock for offline runs.
-  return new ClaudeAgent();
+  return new ClaudeWorker();
 }
