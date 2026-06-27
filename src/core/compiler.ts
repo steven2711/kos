@@ -7,19 +7,19 @@
  * (`src/planner/planner.ts`) consumes this analysis to produce candidate work.
  */
 import {
-  VaultDoc,
+  type VaultDoc,
   loadVault,
   knowledgeLayerCoverage,
   KNOWLEDGE_LAYERS,
 } from "./vault.js";
 import { checkFrontmatter } from "./frontmatter.js";
 import { resolves } from "./wikilinks.js";
-import { buildGraph, inboundCount, KnowledgeGraph } from "./graph.js";
-import { CompilerIssue, issue, bySeverity } from "./issues.js";
-import { computeScore, ScoreBreakdown } from "./scoring.js";
+import { buildGraph, inboundCount, type KnowledgeGraph } from "./graph.js";
+import { type CompilerIssue, issue, bySeverity } from "./issues.js";
+import { computeScore, type ScoreBreakdown } from "./scoring.js";
 
 /** Sections every authored (non-template, non-capture) document must contain. */
-export const REQUIRED_SECTIONS = [
+const REQUIRED_SECTIONS = [
   "Purpose",
   "Context",
   "Open Questions",
@@ -30,7 +30,7 @@ export const REQUIRED_SECTIONS = [
  * ADRs follow a type-specific anatomy (Decision Framework) rather than the
  * generic section set — they record a decision, not an evolving concept.
  */
-export const ADR_REQUIRED_SECTIONS = [
+const ADR_REQUIRED_SECTIONS = [
   "Purpose",
   "Problem",
   "Decision",
@@ -87,7 +87,7 @@ function escapeRe(s: string): string {
 }
 
 /** Validate one document, appending issues. Honours the exemption model. */
-export function checkDocument(
+function checkDocument(
   doc: VaultDoc,
   graph: KnowledgeGraph,
 ): CompilerIssue[] {
@@ -185,12 +185,17 @@ function scrapeOpenQuestions(docs: VaultDoc[]): { text: string; path: string }[]
     for (const line of lines) {
       const heading = line.match(/^#{1,6}\s+(.*\S)\s*$/);
       if (heading) {
-        inSection = /^open questions$/i.test(heading[1].trim());
+        const headingText = heading[1];
+        inSection =
+          headingText !== undefined && /^open questions$/i.test(headingText.trim());
         continue;
       }
       if (!inSection) continue;
       const bullet = line.match(/^\s*[-*]\s+(.*\S)/);
-      if (bullet) out.push({ text: bullet[1].trim(), path: doc.relPath });
+      const bulletText = bullet?.[1];
+      if (bulletText !== undefined) {
+        out.push({ text: bulletText.trim(), path: doc.relPath });
+      }
     }
   }
   return out;
@@ -209,7 +214,7 @@ export function compileDocs(docs: VaultDoc[]): CompilerResult {
   const suggestions = bySeverity(allIssues, "INFO");
 
   const coverage = knowledgeLayerCoverage(docs);
-  const missingLayers = KNOWLEDGE_LAYERS.filter((l) => !coverage.perLayer[l]);
+  const missingLayers = KNOWLEDGE_LAYERS.filter((l) => coverage.perLayer[l] !== true);
   const openQuestions = scrapeOpenQuestions(docs);
   const brokenLinks = errors
     .filter((e) => e.ruleId === "LNK-003")

@@ -1,0 +1,11 @@
+{
+  // Type-check the whole project, tests included, without emitting. The base
+  // tsconfig.json excludes tests so that `npm run build` emits only shipping
+  // code; CI/local `npm run typecheck` uses this config to cover tests too.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -3,15 +3,15 @@
  * (from both the body and the frontmatter parents/children/related fields).
  * Used for orphan detection (LNK-002) and inbound-link counts.
  */
-import { VaultDoc, vaultBasenames } from "./vault.js";
+import { type VaultDoc, vaultBasenames } from "./vault.js";
 import {
   extractWikilinks,
   buildResolutionIndex,
   resolutionKey,
-  Wikilink,
+  type Wikilink,
 } from "./wikilinks.js";
 
-export interface DocLinks {
+interface DocLinks {
   doc: VaultDoc;
   /** Every wikilink found in the body. */
   bodyLinks: Wikilink[];
@@ -36,7 +36,10 @@ function frontmatterLinkStrings(doc: VaultDoc): string[] {
       for (const item of val) {
         if (typeof item !== "string") continue;
         const m = item.match(/\[\[([^\]]+?)\]\]/);
-        if (m) out.push(m[1].replace(/\\\|/g, "|").split("|")[0].trim());
+        const captured = m?.[1];
+        if (captured === undefined) continue;
+        const first = captured.replace(/\\\|/g, "|").split("|")[0] ?? "";
+        out.push(first.trim());
       }
     }
   }

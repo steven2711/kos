@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 
-export const TASK_STATUSES = [
+const TASK_STATUSES = [
   "open",
   "in_progress",
   "complete",
@@ -12,7 +12,7 @@ export const TASK_STATUSES = [
   "failed",
 ] as const;
 
-export const TASK_TYPES = [
+const TASK_TYPES = [
   "concept_extraction",
   "vision_expansion",
   "domain_modeling",
@@ -23,9 +23,9 @@ export const TASK_TYPES = [
   "adr_creation",
 ] as const;
 
-export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
+const PRIORITIES = ["low", "medium", "high", "critical"] as const;
 
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskType = (typeof TASK_TYPES)[number];
 export type Priority = (typeof PRIORITIES)[number];
 
@@ -43,7 +43,7 @@ export interface KosTask {
   updatedAt: string;
 }
 
-export const KosTaskSchema = z.object({
+const KosTaskSchema = z.object({
   id: z.string(),
   type: z.enum(TASK_TYPES),
   status: z.enum(TASK_STATUSES),
@@ -78,8 +78,8 @@ export const PRIORITY_RANK: Record<Priority, number> = {
 export function nextTaskId(existing: KosTask[]): string {
   let max = 0;
   for (const t of existing) {
-    const m = t.id.match(/^T-(\d+)$/);
-    if (m) max = Math.max(max, parseInt(m[1], 10));
+    const digits = t.id.match(/^T-(\d+)$/)?.[1];
+    if (digits !== undefined) max = Math.max(max, parseInt(digits, 10));
   }
   return `T-${String(max + 1).padStart(3, "0")}`;
 }

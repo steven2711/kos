@@ -1,5 +1,5 @@
 /** `kos compile <vaultPath>` — validate + analyse, plan tasks, write reports. */
-import { compileVault, CompilerResult } from "../core/compiler.js";
+import { compileVault, type CompilerResult } from "../core/compiler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
 import {
   renderCompilerReport,
@@ -21,7 +21,7 @@ import {
   buildTaskGraph,
 } from "../planner/planner.js";
 import { executionPlan } from "../scheduler/scheduler.js";
-import { KosTask } from "../tasks/task-model.js";
+import { type KosTask } from "../tasks/task-model.js";
 
 export interface CompileOutput {
   result: CompilerResult;
@@ -76,7 +76,7 @@ export async function compileAndPersist(
     renderExecutionPlan(plan, day),
   );
 
-  if (!opts.quiet) {
+  if (opts.quiet !== true) {
     console.log(
       `Compiled ${result.docCount} docs — score ${result.score}/100, ` +
         `${result.errors.length} error(s), ${result.warnings.length} warning(s).`,

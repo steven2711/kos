@@ -16,7 +16,7 @@ describe("wikilinks", () => {
       "Glossary",
       "ADR-0001",
     ]);
-    expect(links[1].alias).toBe("the glossary");
+    expect(links[1]?.alias).toBe("the glossary");
   });
 
   it("ignores links inside code spans and fenced blocks", () => {

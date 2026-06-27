@@ -5,7 +5,7 @@
  * candidate work, infers dependencies between tasks, and constructs a Task Graph.
  * The Planner never executes work and never validates work.
  */
-import { KosTask, Priority, TaskType, TaskSpec } from "../tasks/task-model.js";
+import { type KosTask, type Priority, type TaskType, type TaskSpec } from "../tasks/task-model.js";
 import type { VaultAnalysis } from "../core/compiler.js";
 
 const LAYER_BY_TYPE: Partial<Record<TaskType, string>> = {

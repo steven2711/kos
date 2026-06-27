@@ -11,7 +11,13 @@
     "kos": "tsx src/cli.ts",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "knip": "knip",
+    "knip:exports": "knip --include exports,types,nsExports,nsTypes",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run knip"
   },
   "engines": {
     "node": ">=18"
@@ -21,13 +27,17 @@
     "commander": "^12.1.0",
     "fast-glob": "^3.3.2",
     "gray-matter": "^4.0.3",
-    "yaml": "^2.5.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
+    "eslint": "^10.5.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.0",
+    "knip": "^6.20.0",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
+    "typescript-eslint": "^8.62.0",
     "vitest": "^2.1.2"
   }
 }

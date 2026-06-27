@@ -1,9 +1,9 @@
 /** `kos validate <vaultPath>` — deterministic checks + a written report. */
 import { loadVault } from "../core/vault.js";
-import { compileDocs, CompilerResult } from "../core/compiler.js";
+import { compileDocs, type CompilerResult } from "../core/compiler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
 import { renderValidationReport } from "../reports/compiler-report.js";
-import { CompilerIssue } from "../core/issues.js";
+import { type CompilerIssue } from "../core/issues.js";
 
 export interface ValidateOptions {
   /** Suppress writing the report (used by `run`'s internal re-validation). */
@@ -16,7 +16,10 @@ function printIssues(label: string, issues: CompilerIssue[]): void {
   if (issues.length === 0) return;
   console.log(`\n${label} (${issues.length}):`);
   for (const i of issues) {
-    const loc = i.path ? ` ${i.path}${i.line ? `:${i.line}` : ""}` : "";
+    const loc =
+      i.path !== undefined && i.path !== ""
+        ? ` ${i.path}${i.line !== undefined ? `:${i.line}` : ""}`
+        : "";
     console.log(`  ${i.severity} ${i.ruleId} — ${i.message}${loc}`);
   }
 }
@@ -28,7 +31,7 @@ export async function validateVault(
   const docs = await loadVault(vaultPath);
   const result = compileDocs(docs);
 
-  if (!opts.quiet) {
+  if (opts.quiet !== true) {
     console.log(`Scanned ${result.docCount} documents in ${vaultPath}`);
     printIssues("ERRORS", result.errors);
     printIssues("WARNINGS", result.warnings);
@@ -38,13 +41,13 @@ export async function validateVault(
     );
   }
 
-  if (!opts.noReport) {
+  if (opts.noReport !== true) {
     const rel = await writeMetaFile(
       vaultPath,
       "Validation Report.md",
       renderValidationReport(result, vaultPath, todayISO()),
     );
-    if (!opts.quiet) console.log(`Wrote ${rel}`);
+    if (opts.quiet !== true) console.log(`Wrote ${rel}`);
   }
 
   return result;

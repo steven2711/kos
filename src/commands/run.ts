@@ -23,8 +23,8 @@ import {
 } from "../tasks/task-store.js";
 import { selectNextTask } from "../scheduler/scheduler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
-import { KosTask } from "../tasks/task-model.js";
-import { Worker, WorkerRequest, selectWorker } from "../workers/claude.js";
+import { type KosTask } from "../tasks/task-model.js";
+import { type Worker, type WorkerRequest, selectWorker } from "../workers/claude.js";
 
 const ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"];
 const MAX_TURNS = 30;
@@ -101,7 +101,8 @@ export async function runRunCommand(
     };
     const workerResult = await worker.runTask(req);
     if (workerResult.finalText) {
-      console.log(`Worker: ${workerResult.finalText.split("\n")[0].slice(0, 200)}`);
+      const firstLine = workerResult.finalText.split("\n")[0] ?? "";
+      console.log(`Worker: ${firstLine.slice(0, 200)}`);
     }
 
     // 5. Kernel guard.

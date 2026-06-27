@@ -36,7 +36,7 @@ export function stripCode(body: string): string {
 const WIKILINK_RE = /\[\[([^\]\n]+?)\]\]/g;
 
 /** True if a target is an angle-bracket placeholder like `<Concept Name>`. */
-export function isPlaceholder(target: string): boolean {
+function isPlaceholder(target: string): boolean {
   return target.includes("<") || target.includes(">");
 }
 
@@ -53,6 +53,7 @@ export function extractWikilinks(body: string): Wikilink[] {
     WIKILINK_RE.lastIndex = 0;
     while ((m = WIKILINK_RE.exec(lineText)) !== null) {
       const inner = m[1];
+      if (inner === undefined) continue;
       // Normalise the escaped pipe used in markdown tables to a plain pipe.
       const normalised = inner.replace(/\\\|/g, "|");
       const pipeIdx = normalised.indexOf("|");
@@ -60,7 +61,14 @@ export function extractWikilinks(body: string): Wikilink[] {
       const alias =
         pipeIdx >= 0 ? normalised.slice(pipeIdx + 1).trim() : undefined;
       if (isPlaceholder(target)) continue;
-      links.push({ target, alias, raw: m[0], line: idx + 1 });
+      // Omit `alias` entirely when absent so the optional property stays
+      // unset under exactOptionalPropertyTypes (rather than `alias: undefined`).
+      links.push({
+        target,
+        raw: m[0],
+        line: idx + 1,
+        ...(alias !== undefined ? { alias } : {}),
+      });
     }
   });
   return links;
@@ -72,7 +80,8 @@ export function extractWikilinks(body: string): Wikilink[] {
  * Obsidian resolves links by the shortest unique note name, case-insensitively.
  */
 export function resolutionKey(target: string): string {
-  let t = target.split("#")[0].split("^")[0].trim();
+  const beforeHeading = target.split("#")[0] ?? target;
+  const t = (beforeHeading.split("^")[0] ?? beforeHeading).trim();
   // Use the last path segment (basename) for resolution.
   const seg = t.split("/").pop() ?? t;
   return seg.replace(/\.md$/i, "").trim().toLowerCase();

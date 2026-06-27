@@ -25,7 +25,15 @@ export function issue(
   path?: string,
   line?: number,
 ): CompilerIssue {
-  return { ruleId, severity, message, path, line };
+  // Spread optional fields only when present so they stay unset (not
+  // `undefined`) under exactOptionalPropertyTypes.
+  return {
+    ruleId,
+    severity,
+    message,
+    ...(path !== undefined ? { path } : {}),
+    ...(line !== undefined ? { line } : {}),
+  };
 }
 
 export function bySeverity(

@@ -5,7 +5,7 @@ import {
   executionPlan,
 } from "../scheduler/scheduler.js";
 import { mergeTasks, updateTask } from "../tasks/task-store.js";
-import { KosTask, TaskSpec } from "../tasks/task-model.js";
+import { type KosTask, type TaskSpec } from "../tasks/task-model.js";
 
 const spec = (over: Partial<TaskSpec> = {}): TaskSpec => ({
   type: "domain_modeling",
@@ -54,7 +54,7 @@ describe("scheduler", () => {
       ],
       "t",
     );
-    expect(sortByPriority(tasks)[0].priority).toBe("critical");
+    expect(sortByPriority(tasks)[0]?.priority).toBe("critical");
   });
 
   it("orders the execution plan and reports blocked tasks", () => {
@@ -74,8 +74,8 @@ describe("scheduler", () => {
     const plan = executionPlan(tasks);
     expect(plan.sequence.map((t) => t.id)).toEqual(["T-001", "T-002"]);
     expect(plan.blocked).toHaveLength(1);
-    expect(plan.blocked[0].task.id).toBe("T-003");
-    expect(plan.blocked[0].missing).toEqual(["T-404"]);
+    expect(plan.blocked[0]?.task.id).toBe("T-003");
+    expect(plan.blocked[0]?.missing).toEqual(["T-404"]);
   });
 
   it("treats completed dependencies as satisfied", () => {

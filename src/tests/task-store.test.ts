@@ -9,7 +9,7 @@ import {
   updateTask,
   renderOpenTaskQueue,
 } from "../tasks/task-store.js";
-import { TaskSpec } from "../tasks/task-model.js";
+import { type TaskSpec } from "../tasks/task-model.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -42,8 +42,8 @@ describe("task-store", () => {
     await saveTasks(dir, tasks);
     const loaded = await loadTasks(dir);
     expect(loaded).toHaveLength(1);
-    expect(loaded[0].id).toBe("T-001");
-    expect(loaded[0].goal).toBe("model something");
+    expect(loaded[0]?.id).toBe("T-001");
+    expect(loaded[0]?.goal).toBe("model something");
   });
 
   it("rejects a corrupt task file", async () => {
@@ -66,7 +66,7 @@ describe("task-store", () => {
     tasks = updateTask(tasks, "T-001", { status: "complete" }, "t2");
     const after = mergeTasks(tasks, [spec()], "t3");
     expect(after).toHaveLength(1);
-    expect(after[0].status).toBe("complete");
+    expect(after[0]?.status).toBe("complete");
   });
 
   it("renders an open-task queue table", () => {

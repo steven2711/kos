@@ -10,7 +10,42 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { KosTask } from "../tasks/task-model.js";
+import type { KosTask } from "../tasks/task-model.js";
+import { loadEnv } from "../config/env.js";
+
+/**
+ * Minimal structural view of the `@anthropic-ai/claude-agent-sdk` surface we
+ * consume. The SDK is dynamically imported (and may be absent), so we describe
+ * only the message fields we read and narrow defensively at runtime rather than
+ * trusting its types.
+ */
+interface SdkMessage {
+  readonly type: string;
+  readonly subtype?: string;
+  readonly result?: unknown;
+  readonly message?: { readonly content?: readonly unknown[] };
+  readonly content?: readonly unknown[];
+}
+
+type SdkQuery = (args: {
+  prompt: string;
+  options: Record<string, unknown>;
+}) => AsyncIterable<SdkMessage>;
+
+/** True for an assistant text block `{ type: "text", text: string }`. */
+function isTextBlock(block: unknown): block is { type: "text"; text: string } {
+  return (
+    typeof block === "object" &&
+    block !== null &&
+    (block as { type?: unknown }).type === "text" &&
+    typeof (block as { text?: unknown }).text === "string"
+  );
+}
+
+/** Best-effort message extraction from an unknown thrown value. */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 export interface WorkerRequest {
   vaultPath: string;
@@ -34,15 +69,18 @@ export interface Worker {
 }
 
 /** Real worker backed by `@anthropic-ai/claude-agent-sdk`. */
-export class ClaudeWorker implements Worker {
+class ClaudeWorker implements Worker {
   readonly name = "claude";
 
   async runTask(req: WorkerRequest): Promise<WorkerResult> {
-    let query: any;
+    let query: SdkQuery;
     try {
       // Dynamic import so the project builds/tests even if the SDK is absent.
-      ({ query } = await import("@anthropic-ai/claude-agent-sdk"));
-    } catch (err) {
+      const mod = (await import("@anthropic-ai/claude-agent-sdk")) as {
+        query: SdkQuery;
+      };
+      query = mod.query;
+    } catch {
       return {
         success: false,
         finalText: "",
@@ -57,10 +95,10 @@ export class ClaudeWorker implements Worker {
     // ANTHROPIC_API_KEY through when the user explicitly opts into API billing
     // (KOS_AUTH=api-key). A CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`)
     // is always passed through for non-interactive subscription auth.
+    const cfg = loadEnv();
     const env: Record<string, string | undefined> = { ...process.env };
-    const preferSubscription =
-      (process.env.KOS_AUTH ?? "subscription").toLowerCase() !== "api-key";
-    if (preferSubscription) delete env.ANTHROPIC_API_KEY;
+    const preferSubscription = cfg.KOS_AUTH !== "api-key";
+    if (preferSubscription) delete env["ANTHROPIC_API_KEY"];
 
     try {
       const stream = query({
@@ -80,27 +118,31 @@ export class ClaudeWorker implements Worker {
       let success = false;
       let error: string | undefined;
 
-      for await (const message of stream as AsyncIterable<any>) {
-        if (message?.type === "assistant") {
+      for await (const message of stream) {
+        if (message.type === "assistant") {
           const blocks = message.message?.content ?? message.content ?? [];
           for (const b of blocks) {
-            if (b?.type === "text" && typeof b.text === "string") {
-              finalText += b.text;
-            }
+            if (isTextBlock(b)) finalText += b.text;
           }
-        } else if (message?.type === "result") {
+        } else if (message.type === "result") {
           if (message.subtype === "success") {
             success = true;
             if (typeof message.result === "string") finalText = message.result;
           } else {
-            error = `worker ended with ${message.subtype}`;
+            error = `worker ended with ${message.subtype ?? "unknown"}`;
           }
         }
       }
 
-      return { success, finalText, error };
-    } catch (err: any) {
-      return { success: false, finalText: "", error: String(err?.message ?? err) };
+      // Omit `error` when unset so the optional property stays absent under
+      // exactOptionalPropertyTypes.
+      return {
+        success,
+        finalText,
+        ...(error !== undefined ? { error } : {}),
+      };
+    } catch (err) {
+      return { success: false, finalText: "", error: errorMessage(err) };
     }
   }
 }
@@ -169,8 +211,7 @@ This document was generated to satisfy the task goal: "${req.task.goal}". It fol
 
 /** Choose the worker implementation based on env. */
 export function selectWorker(): Worker {
-  const forced = process.env.KOS_AGENT?.toLowerCase();
-  if (forced === "mock") return new MockWorker();
+  if (loadEnv().KOS_AGENT === "mock") return new MockWorker();
   // Default: the real Claude worker. It authenticates via your Claude Code
   // subscription (no API key needed). Use KOS_AGENT=mock for offline runs.
   return new ClaudeWorker();

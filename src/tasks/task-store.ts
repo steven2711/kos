@@ -7,16 +7,16 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
-  KosTask,
-  TaskFile,
+  type KosTask,
+  type TaskFile,
   TaskFileSchema,
-  TaskSpec,
+  type TaskSpec,
   nextTaskId,
   taskKey,
 } from "./task-model.js";
 import { sortByPriority } from "../scheduler/scheduler.js";
 
-export function tasksFilePath(vaultPath: string): string {
+function tasksFilePath(vaultPath: string): string {
   return path.join(vaultPath, "90 Meta", "tasks.json");
 }
 
@@ -30,8 +30,15 @@ export async function loadTasks(vaultPath: string): Promise<KosTask[]> {
   let raw: string;
   try {
     raw = await fs.readFile(file, "utf8");
-  } catch (err: any) {
-    if (err && err.code === "ENOENT") return [];
+  } catch (err) {
+    // Missing task file is a normal "no tasks yet" state; rethrow anything else.
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as { code?: unknown }).code === "ENOENT"
+    ) {
+      return [];
+    }
     throw err;
   }
   const parsed: TaskFile = TaskFileSchema.parse(JSON.parse(raw));
@@ -71,7 +78,7 @@ export function mergeTasks(
       id: nextTaskId(result),
       createdAt: now,
       updatedAt: now,
-    } as KosTask);
+    });
   }
   return result;
 }

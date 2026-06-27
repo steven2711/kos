@@ -9,10 +9,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import fg from "fast-glob";
-import { parseFile, ParsedFile } from "./frontmatter.js";
+import { parseFile, type ParsedFile } from "./frontmatter.js";
 
 /** Top-level vault folders, in order. */
-export const VAULT_FOLDERS = [
+const VAULT_FOLDERS = [
   "00 Inbox",
   "01 Kernel",
   "02 Vision",
@@ -29,7 +29,7 @@ export const VAULT_FOLDERS = [
 ] as const;
 
 /** Root-level markdown files that are genuine vault documents. */
-export const ROOT_DOCS = ["Home.md", "README.md"] as const;
+const ROOT_DOCS = ["Home.md", "README.md"] as const;
 
 /** The eight "knowledge layer" folders used for coverage scoring. */
 export const KNOWLEDGE_LAYERS = [
@@ -43,8 +43,8 @@ export const KNOWLEDGE_LAYERS = [
   "09 Roadmap",
 ] as const;
 
-export const KERNEL_FOLDER = "01 Kernel";
-export const TEMPLATES_FOLDER = "01 Kernel/Templates";
+const KERNEL_FOLDER = "01 Kernel";
+const TEMPLATES_FOLDER = "01 Kernel/Templates";
 export const INBOX_FOLDER = "00 Inbox";
 export const META_FOLDER = "90 Meta";
 
@@ -53,7 +53,7 @@ export const META_FOLDER = "90 Meta";
  * vault knowledge, so document discovery skips them — the compiler must not
  * grade its own reports.
  */
-export const GENERATED_META_FILES = new Set([
+const GENERATED_META_FILES = new Set([
   "Validation Report.md",
   "Compiler Report.md",
   "Knowledge Score.md",
@@ -130,7 +130,7 @@ function buildDoc(
   const fileName = relPath.split("/").pop() ?? relPath;
   const basename = fileName.replace(/\.md$/i, "");
   const segments = relPath.split("/");
-  const topFolder = segments.length > 1 ? segments[0] : "";
+  const topFolder = segments.length > 1 ? segments[0] ?? "" : "";
   const isTemplate = parsed.data.template === true;
   const inTemplatesFolder = relPath.startsWith(`${TEMPLATES_FOLDER}/`);
   const isNavigation =
@@ -170,8 +170,9 @@ export function knowledgeLayerCoverage(docs: VaultDoc[]): {
 } {
   const perLayer: Record<string, boolean> = {};
   for (const layer of KNOWLEDGE_LAYERS) perLayer[layer] = false;
+  const layers: readonly string[] = KNOWLEDGE_LAYERS;
   for (const doc of docs) {
-    if (!KNOWLEDGE_LAYERS.includes(doc.topFolder as any)) continue;
+    if (!layers.includes(doc.topFolder)) continue;
     if (doc.isNavigation || doc.isTemplate) continue;
     if (doc.fileName === "_index.md") continue;
     perLayer[doc.topFolder] = true;

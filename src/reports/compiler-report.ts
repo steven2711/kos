@@ -3,11 +3,11 @@
  * These are tool artifacts (excluded from document validation), so they are
  * plain readable markdown rather than typed vault documents.
  */
-import { CompilerResult } from "../core/compiler.js";
-import { CompilerIssue } from "../core/issues.js";
-import { KosTask } from "../tasks/task-model.js";
-import { TaskGraph } from "../planner/planner.js";
-import { ExecutionPlan } from "../scheduler/scheduler.js";
+import { type CompilerResult } from "../core/compiler.js";
+import { type CompilerIssue } from "../core/issues.js";
+import { type KosTask } from "../tasks/task-model.js";
+import { type TaskGraph } from "../planner/planner.js";
+import { type ExecutionPlan } from "../scheduler/scheduler.js";
 
 function issueTable(issues: CompilerIssue[]): string {
   if (issues.length === 0) return "_none_\n";

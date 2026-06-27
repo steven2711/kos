@@ -46,8 +46,8 @@ describe("planner", () => {
       mergeTasks([], seedIngestTasks("00 Inbox/x.md"), "t"),
     );
     const graph = buildTaskGraph(tasks);
-    expect(graph.blocks["T-001"].sort()).toEqual(["T-002", "T-003"]);
-    expect(graph.blocks["T-003"].sort()).toEqual(["T-004", "T-005"]);
+    expect((graph.blocks["T-001"] ?? []).sort()).toEqual(["T-002", "T-003"]);
+    expect((graph.blocks["T-003"] ?? []).sort()).toEqual(["T-004", "T-005"]);
     expect(graph.blocks["T-006"]).toEqual([]);
   });
 
@@ -68,7 +68,7 @@ describe("planner", () => {
 
   it("compiler no longer returns tasks (read-only)", () => {
     const result = compileDocs([]);
-    expect((result as Record<string, unknown>).tasks).toBeUndefined();
+    expect("tasks" in result).toBe(false);
     expect(result.analysis).toBeDefined();
     expect(typeof result.score).toBe("number");
   });

@@ -9,10 +9,10 @@
  * The formula is intentionally simple and monotonic so the same vault always
  * yields the same number and fixing issues never lowers the score.
  */
-export const ERROR_PENALTY = 6;
-export const WARNING_PENALTY = 1.5;
-export const QUALITY_WEIGHT = 0.6;
-export const COVERAGE_WEIGHT = 0.4;
+const ERROR_PENALTY = 6;
+const WARNING_PENALTY = 1.5;
+const QUALITY_WEIGHT = 0.6;
+const COVERAGE_WEIGHT = 0.4;
 
 export interface ScoreInput {
   errors: number;

@@ -5,7 +5,7 @@
  * to produce a forward-looking execution plan. The Scheduler never creates tasks
  * and never validates work.
  */
-import { KosTask, PRIORITY_RANK } from "../tasks/task-model.js";
+import { type KosTask, PRIORITY_RANK } from "../tasks/task-model.js";
 
 /** Order tasks by priority (desc) then creation order (asc). */
 export function sortByPriority(tasks: KosTask[]): KosTask[] {
@@ -35,7 +35,7 @@ export function selectNextTask(tasks: KosTask[]): KosTask | null {
 }
 
 /** An open task that cannot run yet, with the dependency ids it is waiting on. */
-export interface BlockedTask {
+interface BlockedTask {
   task: KosTask;
   missing: string[];
 }

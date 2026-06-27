@@ -6,8 +6,7 @@
  * plus the optional `template` marker for files in `01 Kernel/Templates/`.
  */
 import matter from "gray-matter";
-import { z } from "zod";
-import { CompilerIssue, issue } from "./issues.js";
+import { type CompilerIssue, issue } from "./issues.js";
 
 export const ALLOWED_TYPES = [
   "concept",
@@ -32,7 +31,7 @@ export const ALLOWED_STATUSES = [
   "archived",
 ] as const;
 
-export const REQUIRED_KEYS = [
+const REQUIRED_KEYS = [
   "type",
   "status",
   "created",
@@ -44,10 +43,10 @@ export const REQUIRED_KEYS = [
   "related",
 ] as const;
 
-export type DocType = (typeof ALLOWED_TYPES)[number];
-export type DocStatus = (typeof ALLOWED_STATUSES)[number];
+type DocType = (typeof ALLOWED_TYPES)[number];
+type DocStatus = (typeof ALLOWED_STATUSES)[number];
 
-export interface Frontmatter {
+interface Frontmatter {
   type?: string;
   status?: string;
   created?: string;
@@ -77,7 +76,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * YAML parses bare dates into JS `Date` objects, so both forms must be handled.
  * Returns null when the value cannot be interpreted as a calendar date.
  */
-export function normalizeDate(value: unknown): string | null {
+function normalizeDate(value: unknown): string | null {
   if (value instanceof Date) {
     return Number.isNaN(value.getTime())
       ? null
@@ -94,25 +93,11 @@ export function parseFile(raw: string): ParsedFile {
   const hasFrontmatter = /^﻿?---\r?\n/.test(raw);
   const parsed = matter(raw);
   return {
-    data: (parsed.data ?? {}) as Frontmatter,
+    data: (parsed.data ?? {}),
     hasFrontmatter,
     content: parsed.content ?? "",
   };
 }
-
-/** Zod schema for a fully-valid (non-template) document's frontmatter. */
-export const FrontmatterSchema = z.object({
-  type: z.enum(ALLOWED_TYPES),
-  status: z.enum(ALLOWED_STATUSES),
-  created: z.string().regex(DATE_RE),
-  updated: z.string().regex(DATE_RE),
-  owner: z.string().min(1),
-  tags: z.array(z.string()),
-  parents: z.array(z.string()),
-  children: z.array(z.string()),
-  related: z.array(z.string()),
-  template: z.boolean().optional(),
-});
 
 export interface FrontmatterCheckOptions {
   /** Vault-relative path, used in issue messages. */
@@ -184,7 +169,7 @@ export function checkFrontmatter(
       );
     }
   }
-  if (createdStr && updatedStr && updatedStr < createdStr) {
+  if (createdStr !== null && updatedStr !== null && updatedStr < createdStr) {
     issues.push(
       issue("FM-005", "ERROR", "updated is earlier than created", path),
     );

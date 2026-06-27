@@ -9,8 +9,8 @@ import { compileVault } from "../core/compiler.js";
 import { loadTasks } from "../tasks/task-store.js";
 import { buildTaskGraph } from "../planner/planner.js";
 import { executionPlan, selectNextTask } from "../scheduler/scheduler.js";
-import { CompilerIssue } from "../core/issues.js";
-import { KosTask } from "../tasks/task-model.js";
+import { type CompilerIssue } from "../core/issues.js";
+import { type KosTask } from "../tasks/task-model.js";
 
 function countByRule(issues: CompilerIssue[]): string {
   const m = new Map<string, number>();
@@ -34,7 +34,7 @@ function countByType(tasks: KosTask[]): string {
     .join("\n");
 }
 
-export async function explainVault(vaultPath: string): Promise<number> {
+async function explainVault(vaultPath: string): Promise<number> {
   const result = await compileVault(vaultPath);
   const tasks = await loadTasks(vaultPath);
   const b = result.scoreBreakdown;
