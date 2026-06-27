@@ -10,6 +10,11 @@ and circular dependencies.
 > (runs `typecheck` → `lint` → `test` → `knip`). It must stay green. CI is wired to
 > these npm scripts; nothing is silently skipped.
 
+Git hooks (husky) enforce this automatically: **pre-commit** runs `lint-staged`
+(`eslint --fix` on staged `.ts` files only — fast), and **pre-push** runs the full
+`npm run check`. The hooks install on `npm install` via the `prepare` script. Bypass
+only in a genuine emergency with `git commit --no-verify` / `git push --no-verify`.
+
 ---
 
 ## Why these rules exist
