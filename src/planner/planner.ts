@@ -276,10 +276,30 @@ function docsLabel(documents: string[]): string {
   return sorted.length > 0 ? sorted.join(" ↔ ") : "the vault";
 }
 
-/** Route an actionable recommendation to a task type by the layer it cites. */
-function recommendationType(documents: string[]): TaskType {
+/**
+ * Keyword → research task type. Findings calling for external evidence become
+ * research tasks (executed deliberately by `kos research`). Checked in order, so
+ * the most specific evidence need wins before the generic layer routing.
+ */
+const RESEARCH_ROUTES: { type: TaskType; re: RegExp }[] = [
+  { type: "competitor_research", re: /\b(competitor|competition|competitive|incumbent|rival)/i },
+  { type: "legal_research", re: /\b(legal|compliance|regulation|regulatory|licen[sc]e|gdpr|privacy law|liabilit)/i },
+  { type: "technical_research", re: /\b(feasibilit|technical risk|scalab|benchmark|performance|prototype)/i },
+  { type: "market_research", re: /\b(market|demand|tam|go-to-market|gtm|customer segment|addressable)/i },
+];
+
+/**
+ * Route an actionable recommendation to a task type. A finding that asks for
+ * external evidence (competitors, market, legal, technical feasibility) becomes
+ * the matching research task; otherwise it falls back to the cited-layer routing.
+ */
+function recommendationType(finding: SemanticFinding): TaskType {
+  const haystack = `${finding.title} ${finding.reasoning} ${finding.recommendedAction} ${finding.supportingDocuments.join(" ")}`;
+  for (const route of RESEARCH_ROUTES) {
+    if (route.re.test(haystack)) return route.type;
+  }
   const inLayer = (layer: string): boolean =>
-    documents.some((d) => d.startsWith(layer));
+    finding.supportingDocuments.some((d) => d.startsWith(layer));
   if (inLayer("05 Architecture")) return "architecture_research";
   if (inLayer("08 Business")) return "business_research";
   return "documentation_repair";
@@ -310,7 +330,7 @@ function semanticTaskSpec(finding: SemanticFinding): TaskSpec | null {
     (finding.confidence === "medium" || finding.confidence === "high")
   ) {
     return {
-      type: recommendationType(finding.supportingDocuments),
+      type: recommendationType(finding),
       status: "open",
       priority: "low",
       goal: `Address a semantic recommendation involving ${label}`,

@@ -56,6 +56,29 @@ describe("task-store", () => {
     expect(loaded[0]?.origin).toBe("semantic");
   });
 
+  it("round-trips a research task's query/hints/output and origin", async () => {
+    const tasks = mergeTasks(
+      [],
+      [
+        spec({
+          type: "research",
+          origin: "research",
+          goal: "Research: competitors",
+          researchQuery: "competitors",
+          sourceHints: ["https://example.com"],
+          expectedResearchOutput: "A competitor landscape doc",
+        }),
+      ],
+      "2026-06-25T00:00:00.000Z",
+    );
+    await saveTasks(dir, tasks);
+    const loaded = await loadTasks(dir);
+    expect(loaded[0]?.origin).toBe("research");
+    expect(loaded[0]?.researchQuery).toBe("competitors");
+    expect(loaded[0]?.sourceHints).toEqual(["https://example.com"]);
+    expect(loaded[0]?.expectedResearchOutput).toBe("A competitor landscape doc");
+  });
+
   it("rejects a corrupt task file", async () => {
     await fs.writeFile(
       path.join(dir, "90 Meta", "tasks.json"),

@@ -19,8 +19,15 @@ export function sortByPriority(tasks: KosTask[]): KosTask[] {
 /**
  * Select the next actionable task: highest priority `open` task whose
  * dependencies are all `complete`. Returns null if none.
+ *
+ * An optional `filter` narrows the candidate set without changing ordering —
+ * `kos run` excludes research tasks (they belong to `kos research`), and
+ * `kos research` selects only research tasks.
  */
-export function selectNextTask(tasks: KosTask[]): KosTask | null {
+export function selectNextTask(
+  tasks: KosTask[],
+  filter?: (task: KosTask) => boolean,
+): KosTask | null {
   const completeIds = new Set(
     tasks.filter((t) => t.status === "complete").map((t) => t.id),
   );
@@ -28,7 +35,8 @@ export function selectNextTask(tasks: KosTask[]): KosTask | null {
     tasks.filter(
       (t) =>
         t.status === "open" &&
-        t.dependencies.every((d) => completeIds.has(d)),
+        t.dependencies.every((d) => completeIds.has(d)) &&
+        (filter === undefined || filter(t)),
     ),
   );
   return candidates[0] ?? null;

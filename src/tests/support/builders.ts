@@ -48,6 +48,17 @@ export function kosTask(over: Partial<KosTask> = {}): KosTask {
   };
 }
 
+/** A research `KosTask` (type `research`, origin `research`) with valid defaults. */
+export function researchTask(over: Partial<KosTask> = {}): KosTask {
+  return kosTask({
+    type: "research",
+    origin: "research",
+    goal: "Research: a question",
+    researchQuery: "a question",
+    ...over,
+  });
+}
+
 /** A `SemanticFinding` with valid defaults (a medium-confidence observation). */
 export function semanticFinding(
   over: Partial<SemanticFinding> = {},

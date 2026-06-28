@@ -5,7 +5,7 @@ import {
   executionPlan,
 } from "../scheduler/scheduler.js";
 import { mergeTasks, updateTask } from "../tasks/task-store.js";
-import { type KosTask } from "../tasks/task-model.js";
+import { type KosTask, isResearchType } from "../tasks/task-model.js";
 import { taskSpec as spec } from "./support/builders.js";
 
 describe("scheduler", () => {
@@ -65,6 +65,27 @@ describe("scheduler", () => {
     expect(plan.blocked).toHaveLength(1);
     expect(plan.blocked[0]?.task.id).toBe("T-003");
     expect(plan.blocked[0]?.missing).toEqual(["T-404"]);
+  });
+
+  it("applies an optional filter so run and research see different candidates", () => {
+    const tasks = mergeTasks(
+      [],
+      [
+        spec({ type: "research", origin: "research", goal: "gather evidence" }),
+        spec({ priority: "high", goal: "write a doc" }),
+      ],
+      "t",
+    );
+    // `kos run` excludes research tasks.
+    expect(selectNextTask(tasks, (t) => !isResearchType(t.type))?.goal).toBe(
+      "write a doc",
+    );
+    // `kos research` selects only research tasks.
+    expect(selectNextTask(tasks, (t) => isResearchType(t.type))?.type).toBe(
+      "research",
+    );
+    // No filter: ordinary priority ordering is unchanged.
+    expect(selectNextTask(tasks)?.goal).toBe("write a doc");
   });
 
   it("treats completed dependencies as satisfied", () => {

@@ -6,6 +6,7 @@
  *   kos ingest   <vaultPath> <inputFile>
  *   kos compile  <vaultPath>
  *   kos analyze  <vaultPath>
+ *   kos research <vaultPath> [query]
  *   kos explain  <vaultPath>
  *   kos run      <vaultPath> --max-iterations 3
  */
@@ -15,6 +16,7 @@ import { runValidateCommand } from "./commands/validate.js";
 import { runIngestCommand } from "./commands/ingest.js";
 import { runCompileCommand } from "./commands/compile.js";
 import { runAnalyzeCommand } from "./commands/analyze.js";
+import { runResearchCommand } from "./commands/research.js";
 import { runExplainCommand } from "./commands/explain.js";
 import { runRunCommand } from "./commands/run.js";
 
@@ -65,6 +67,17 @@ async function main(): Promise<void> {
     )
     .action(async (vaultPath: string) => {
       process.exitCode = await runAnalyzeCommand(resolveVault(vaultPath));
+    });
+
+  program
+    .command("research")
+    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[query]", "optional one-off research query")
+    .description(
+      "Run the Research Worker: gather cited evidence into 07 Research/ and propose follow-ups",
+    )
+    .action(async (vaultPath: string, query: string | undefined) => {
+      process.exitCode = await runResearchCommand(resolveVault(vaultPath), query);
     });
 
   program

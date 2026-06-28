@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextTaskId, taskKey } from "../tasks/task-model.js";
+import { nextTaskId, taskKey, isResearchType } from "../tasks/task-model.js";
 import { kosTask } from "./support/builders.js";
 
 describe("nextTaskId", () => {
@@ -40,5 +40,28 @@ describe("taskKey", () => {
     const domain = taskKey({ type: "domain_modeling", goal: "same goal" });
     const vision = taskKey({ type: "vision_expansion", goal: "same goal" });
     expect(domain).not.toBe(vision);
+  });
+});
+
+describe("isResearchType", () => {
+  it("is true for every research task type", () => {
+    for (const t of [
+      "research",
+      "competitor_research",
+      "technical_research",
+      "market_research",
+      "legal_research",
+    ] as const) {
+      expect(isResearchType(t)).toBe(true);
+    }
+  });
+
+  it("is false for non-research work the generic worker handles", () => {
+    expect(isResearchType("domain_modeling")).toBe(false);
+    expect(isResearchType("founder_interview")).toBe(false);
+    // architecture_research/business_research are documentation tasks, not the
+    // external-evidence research the Research Worker owns.
+    expect(isResearchType("architecture_research")).toBe(false);
+    expect(isResearchType("business_research")).toBe(false);
   });
 });

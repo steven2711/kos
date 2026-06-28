@@ -23,7 +23,7 @@ import {
 } from "../tasks/task-store.js";
 import { selectNextTask } from "../scheduler/scheduler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
-import { type KosTask } from "../tasks/task-model.js";
+import { type KosTask, isResearchType } from "../tasks/task-model.js";
 import {
   type Worker,
   type WorkerRequest,
@@ -82,9 +82,10 @@ export async function runRunCommand(
     const { result } = await compileAndPersist(vaultPath, { quiet: true });
     const baselineErrors = result.errors.length;
 
-    // 2. Select exactly one actionable task.
+    // 2. Select exactly one actionable task. Research tasks are excluded — they
+    //    are executed deliberately by `kos research`, never the generic worker.
     let tasks = await loadTasks(vaultPath);
-    const task = selectNextTask(tasks);
+    const task = selectNextTask(tasks, (t) => !isResearchType(t.type));
     if (!task) {
       console.log("No actionable open tasks. Stopping.");
       break;

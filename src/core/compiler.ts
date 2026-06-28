@@ -39,8 +39,22 @@ const ADR_REQUIRED_SECTIONS = [
   "Related Documents",
 ] as const;
 
+/**
+ * Research documents add a `Sources` section to the generic set: evidence must
+ * cite where it came from ("research is evidence, not truth"). This deterministically
+ * enforces the v0.8 "research docs include at least one source" requirement at the
+ * section level. Templates (`template:true`) and `type:moc` docs are exempt from
+ * SEC-001, so the kernel Research template and Research Map are unaffected.
+ */
+const RESEARCH_REQUIRED_SECTIONS = [
+  ...REQUIRED_SECTIONS,
+  "Sources",
+] as const;
+
 function requiredSectionsFor(type: unknown): readonly string[] {
-  return type === "adr" ? ADR_REQUIRED_SECTIONS : REQUIRED_SECTIONS;
+  if (type === "adr") return ADR_REQUIRED_SECTIONS;
+  if (type === "research") return RESEARCH_REQUIRED_SECTIONS;
+  return REQUIRED_SECTIONS;
 }
 
 /** Headings that satisfy the "Relationships" requirement (or its variants). */

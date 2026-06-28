@@ -47,6 +47,18 @@ const KERNEL_FOLDER = "01 Kernel";
 const TEMPLATES_FOLDER = "01 Kernel/Templates";
 export const INBOX_FOLDER = "00 Inbox";
 export const META_FOLDER = "90 Meta";
+export const RESEARCH_FOLDER = "07 Research";
+
+/**
+ * Folders the Research Worker must never touch. It may write only `07 Research/`
+ * and `90 Meta/`; every other vault folder (Kernel + all canonical layers + the
+ * Inbox + Archive) is snapshotted before/after a research task and any change
+ * fails the task. This is the *real* write-boundary enforcement — SDK
+ * `allowedTools` cannot be path-scoped reliably.
+ */
+export const PROTECTED_RESEARCH_FOLDERS = VAULT_FOLDERS.filter(
+  (f) => f !== RESEARCH_FOLDER && f !== META_FOLDER,
+);
 
 /**
  * Files the CLI generates inside `90 Meta/`. They are tool output, not authored
@@ -65,6 +77,7 @@ const GENERATED_META_FILES = new Set([
   "Founder Questions.md",
   "Interview Log.md",
   "Semantic Report.md",
+  "Research Report.md",
 ]);
 
 export interface VaultDoc {
@@ -184,16 +197,18 @@ export function knowledgeLayerCoverage(docs: VaultDoc[]): {
   return { covered, total: KNOWLEDGE_LAYERS.length, perLayer };
 }
 
-/** Read every Kernel file's content keyed by relative path (for the run guard). */
-export async function snapshotKernel(
+/**
+ * Read the content of every file under the given folders, keyed by relative
+ * path. The basis for the before/after write-boundary guards (Kernel and
+ * Research).
+ */
+export async function snapshotFolders(
   vaultPath: string,
+  folders: readonly string[],
 ): Promise<Map<string, string>> {
   const root = path.resolve(vaultPath);
-  const entries = await fg(`${fg.escapePath(KERNEL_FOLDER)}/**/*`, {
-    cwd: root,
-    onlyFiles: true,
-    dot: false,
-  });
+  const patterns = folders.map((f) => `${fg.escapePath(f)}/**/*`);
+  const entries = await fg(patterns, { cwd: root, onlyFiles: true, dot: false });
   const snap = new Map<string, string>();
   for (const rel of entries) {
     const content = await fs.readFile(path.join(root, rel), "utf8");
@@ -202,12 +217,13 @@ export async function snapshotKernel(
   return snap;
 }
 
-/** Return the relative paths of Kernel files that changed vs a snapshot. */
-export async function kernelChanges(
+/** Return the relative paths under `folders` that changed vs a snapshot. */
+export async function folderChanges(
   vaultPath: string,
   before: Map<string, string>,
+  folders: readonly string[],
 ): Promise<string[]> {
-  const after = await snapshotKernel(vaultPath);
+  const after = await snapshotFolders(vaultPath, folders);
   const changed: string[] = [];
   for (const [rel, content] of after) {
     if (before.get(rel) !== content) changed.push(rel);
@@ -216,4 +232,19 @@ export async function kernelChanges(
     if (!after.has(rel)) changed.push(`${rel} (deleted)`);
   }
   return changed;
+}
+
+/** Read every Kernel file's content keyed by relative path (for the run guard). */
+export async function snapshotKernel(
+  vaultPath: string,
+): Promise<Map<string, string>> {
+  return snapshotFolders(vaultPath, [KERNEL_FOLDER]);
+}
+
+/** Return the relative paths of Kernel files that changed vs a snapshot. */
+export async function kernelChanges(
+  vaultPath: string,
+  before: Map<string, string>,
+): Promise<string[]> {
+  return folderChanges(vaultPath, before, [KERNEL_FOLDER]);
 }

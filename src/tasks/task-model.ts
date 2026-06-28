@@ -22,7 +22,27 @@ const TASK_TYPES = [
   "link_repair",
   "adr_creation",
   "founder_interview",
+  // Research types (v0.8) — executed only by `kos research`, never `kos run`.
+  "research",
+  "competitor_research",
+  "technical_research",
+  "market_research",
+  "legal_research",
 ] as const;
+
+/** Task types the Research Worker handles (gathered into `07 Research/`). */
+const RESEARCH_TASK_TYPES = new Set<TaskType>([
+  "research",
+  "competitor_research",
+  "technical_research",
+  "market_research",
+  "legal_research",
+]);
+
+/** True for a task type executed by the Research Worker (`kos research`). */
+export function isResearchType(type: TaskType): boolean {
+  return RESEARCH_TASK_TYPES.has(type);
+}
 
 const PRIORITIES = ["low", "medium", "high", "critical"] as const;
 
@@ -44,10 +64,17 @@ export interface KosTask {
   questions?: string[] | undefined;
   /**
    * Provenance: `compiler` = required work derived from the deterministic
-   * analysis; `semantic` = advisory work proposed by the LLM Semantic Reviewer.
+   * analysis; `semantic` = advisory work proposed by the LLM Semantic Reviewer;
+   * `research` = a one-off `kos research` task or a Research Worker follow-up.
    * Keeps "facts vs reasoning" visible in the task layer (see semantic-rules.ts).
    */
-  origin?: "compiler" | "semantic" | undefined;
+  origin?: "compiler" | "semantic" | "research" | undefined;
+  /** Free-text query for a research task (`kos research "<query>"`). */
+  researchQuery?: string | undefined;
+  /** Optional starting points (URLs, doc paths) for a research task. */
+  sourceHints?: string[] | undefined;
+  /** A one-line description of the research artifact expected. */
+  expectedResearchOutput?: string | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,7 +90,10 @@ const KosTaskSchema = z.object({
   acceptanceCriteria: z.array(z.string()),
   dependencies: z.array(z.string()),
   questions: z.array(z.string()).optional(),
-  origin: z.enum(["compiler", "semantic"]).optional(),
+  origin: z.enum(["compiler", "semantic", "research"]).optional(),
+  researchQuery: z.string().optional(),
+  sourceHints: z.array(z.string()).optional(),
+  expectedResearchOutput: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

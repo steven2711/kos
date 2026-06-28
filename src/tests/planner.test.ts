@@ -168,6 +168,37 @@ describe("planner", () => {
     expect(tasks[0]?.acceptanceCriteria).toContain("Investigate the scaling approach.");
   });
 
+  it("routes a recommendation about competitors to a competitor_research task", () => {
+    const review = semanticReview([
+      semanticFinding({
+        class: "recommendation",
+        confidence: "high",
+        title: "Map the competitor landscape",
+        reasoning: "No competitive analysis exists for the product.",
+        supportingDocuments: ["08 Business/Map.md"],
+        recommendedAction: "Research direct competitors and their positioning.",
+      }),
+    ]);
+    const tasks = deriveSemanticTasks(review);
+    expect(tasks[0]?.type).toBe("competitor_research");
+    expect(tasks[0]?.priority).toBe("low");
+    expect(tasks[0]?.origin).toBe("semantic");
+  });
+
+  it("routes a recommendation about legal/regulatory uncertainty to legal_research", () => {
+    const review = semanticReview([
+      semanticFinding({
+        class: "recommendation",
+        confidence: "medium",
+        title: "Clarify data-privacy compliance",
+        reasoning: "Regulatory exposure under GDPR is unclear.",
+        supportingDocuments: ["02 Vision/Vision.md"],
+        recommendedAction: "Research the applicable privacy regulations.",
+      }),
+    ]);
+    expect(deriveSemanticTasks(review)[0]?.type).toBe("legal_research");
+  });
+
   it("leaves suggestions and low-confidence findings as report-only (no task)", () => {
     const review = semanticReview([
       semanticFinding({ class: "suggestion", confidence: "high" }),

@@ -20,6 +20,8 @@ const EnvSchema = z.object({
     .default("subscription"),
   /** Force a specific worker implementation; unset = real Claude worker. */
   KOS_AGENT: z.preprocess(lower, z.enum(["mock", "claude"]).optional()),
+  /** Force the research worker; unset = follow KOS_AGENT, else real Claude. */
+  KOS_RESEARCH_WORKER: z.preprocess(lower, z.enum(["mock", "claude"]).optional()),
   /** API key, only honoured when KOS_AUTH=api-key. */
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   /** Subscription OAuth token from `claude setup-token`. */
@@ -37,6 +39,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): KosEnv {
   return EnvSchema.parse({
     KOS_AUTH: source["KOS_AUTH"],
     KOS_AGENT: source["KOS_AGENT"],
+    KOS_RESEARCH_WORKER: source["KOS_RESEARCH_WORKER"],
     ANTHROPIC_API_KEY: source["ANTHROPIC_API_KEY"],
     CLAUDE_CODE_OAUTH_TOKEN: source["CLAUDE_CODE_OAUTH_TOKEN"],
   });
