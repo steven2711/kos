@@ -80,6 +80,22 @@ status: draft
     expect(ok.filter((i) => i.ruleId.startsWith("TPL")).length).toBe(0);
   });
 
+  it("accepts unquoted YAML dates parsed as Date objects", () => {
+    // `created:/updated: 2026-06-25` are bare YAML dates → JS Date objects;
+    // normalizeDate must canonicalise them without an FM-005 false positive.
+    expect(check(VALID).filter((i) => i.ruleId === "FM-005")).toHaveLength(0);
+  });
+
+  it("flags a malformed date string (FM-005)", () => {
+    const raw = VALID.replace("created: 2026-06-25", "created: not-a-date");
+    expect(check(raw).some((i) => i.ruleId === "FM-005")).toBe(true);
+  });
+
+  it("flags a whitespace-only owner (FM-006)", () => {
+    const raw = VALID.replace("owner: founder", 'owner: "   "');
+    expect(check(raw).some((i) => i.ruleId === "FM-006")).toBe(true);
+  });
+
   it("exposes the canonical enums", () => {
     expect(ALLOWED_TYPES).toContain("adr");
     expect(ALLOWED_TYPES).not.toContain("template");

@@ -5,19 +5,8 @@ import {
   executionPlan,
 } from "../scheduler/scheduler.js";
 import { mergeTasks, updateTask } from "../tasks/task-store.js";
-import { type KosTask, type TaskSpec } from "../tasks/task-model.js";
-
-const spec = (over: Partial<TaskSpec> = {}): TaskSpec => ({
-  type: "domain_modeling",
-  status: "open",
-  priority: "medium",
-  goal: "model something",
-  inputs: [],
-  expectedOutputs: [],
-  acceptanceCriteria: [],
-  dependencies: [],
-  ...over,
-});
+import { type KosTask } from "../tasks/task-model.js";
+import { taskSpec as spec } from "./support/builders.js";
 
 describe("scheduler", () => {
   it("selects the highest-priority open task whose deps are complete", () => {

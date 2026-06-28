@@ -1,74 +1,37 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { loadVault, snapshotKernel } from "../core/vault.js";
 import { compileDocs } from "../core/compiler.js";
 import { runRunCommand } from "../commands/run.js";
 import { loadTasks } from "../tasks/task-store.js";
 import { MockWorker } from "../workers/claude.js";
+import { markdownDoc } from "./support/builders.js";
+import {
+  makeTempVault,
+  removeTempVault,
+  writeVaultFile,
+} from "./support/tmp-vault.js";
 
 let dir: string;
 
+/** Write a vault-relative file into the current temp vault. */
 async function write(rel: string, content: string): Promise<void> {
-  const abs = path.join(dir, rel);
-  await fs.mkdir(path.dirname(abs), { recursive: true });
-  await fs.writeFile(abs, content, "utf8");
-}
-
-function doc(opts: {
-  type?: string;
-  links: string[];
-  sections?: boolean;
-}): string {
-  const links = opts.links.map((l) => `- [[${l}]]`).join("\n");
-  const body = opts.sections === false
-    ? "# Doc\n\nNo required sections here."
-    : `# Doc
-
-## Purpose
-
-Purpose text linking ${opts.links.map((l) => `[[${l}]]`).join(" ")}.
-
-## Context
-
-Context.
-
-## Related Documents
-
-${links}
-
-## Open Questions
-
-- A question?
-`;
-  return `---
-type: ${opts.type ?? "concept"}
-status: canonical
-created: 2026-06-25
-updated: 2026-06-25
-owner: founder
-tags: [t]
-parents: []
-children: []
-related: []
----
-
-${body}`;
+  await writeVaultFile(dir, rel, content);
 }
 
 /** Stub link targets used so wikilinks resolve. */
 async function writeStubTargets(names: { rel: string }[]): Promise<void> {
   for (const n of names) {
-    await write(n.rel, doc({ links: ["Home", "Home", "Home", "Home", "Home"] }));
+    await write(n.rel, markdownDoc({ links: ["Home", "Home", "Home", "Home", "Home"] }));
   }
 }
 
 beforeEach(async () => {
-  dir = await fs.mkdtemp(path.join(os.tmpdir(), "kos-compile-"));
+  dir = await makeTempVault("kos-compile-");
 });
 afterEach(async () => {
-  await fs.rm(dir, { recursive: true, force: true });
+  await removeTempVault(dir);
 });
 
 describe("compiler", () => {
@@ -79,7 +42,7 @@ describe("compiler", () => {
     await write("04 Domain/Domain Map.md", "# Domain Map\n\nstub\n");
     await write(
       "04 Domain/Good.md",
-      doc({ links: ["Home", "Broken", "Domain Map", "Constitution", "Glossary"] }),
+      markdownDoc({ links: ["Home", "Broken", "Domain Map", "Constitution", "Glossary"] }),
     );
     // Broken: missing sections, a broken link, and too few links.
     await write(

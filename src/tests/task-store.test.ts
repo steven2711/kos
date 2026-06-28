@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import {
   loadTasks,
@@ -9,27 +8,15 @@ import {
   updateTask,
   renderOpenTaskQueue,
 } from "../tasks/task-store.js";
-import { type TaskSpec } from "../tasks/task-model.js";
+import { taskSpec as spec } from "./support/builders.js";
+import { makeTempVault, removeTempVault } from "./support/tmp-vault.js";
 
 let dir: string;
 beforeEach(async () => {
-  dir = await fs.mkdtemp(path.join(os.tmpdir(), "kos-store-"));
-  await fs.mkdir(path.join(dir, "90 Meta"), { recursive: true });
+  dir = await makeTempVault("kos-store-");
 });
 afterEach(async () => {
-  await fs.rm(dir, { recursive: true, force: true });
-});
-
-const spec = (over: Partial<TaskSpec> = {}): TaskSpec => ({
-  type: "domain_modeling",
-  status: "open",
-  priority: "medium",
-  goal: "model something",
-  inputs: [],
-  expectedOutputs: [],
-  acceptanceCriteria: [],
-  dependencies: [],
-  ...over,
+  await removeTempVault(dir);
 });
 
 describe("task-store", () => {
@@ -51,7 +38,7 @@ describe("task-store", () => {
       path.join(dir, "90 Meta", "tasks.json"),
       JSON.stringify({ version: 1, tasks: [{ id: "bad" }] }),
     );
-    await expect(loadTasks(dir)).rejects.toBeTruthy();
+    await expect(loadTasks(dir)).rejects.toThrow();
   });
 
   it("dedupes on merge by type+goal and assigns sequential ids", () => {
