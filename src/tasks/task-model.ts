@@ -102,6 +102,11 @@ export interface KosTask {
   supportingSources?: string[] | undefined;
   /** How confident the source channel is in the claim. */
   confidence?: "low" | "medium" | "high" | undefined;
+  /**
+   * How many times this task has been run and failed. Bumped each time the loop
+   * marks the task `failed`; surfaced for visibility (it never blocks a retry).
+   */
+  attempts?: number | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -126,6 +131,7 @@ const KosTaskSchema = z.object({
   supportingDocuments: z.array(z.string()).optional(),
   supportingSources: z.array(z.string()).optional(),
   confidence: z.enum(["low", "medium", "high"]).optional(),
+  attempts: z.number().int().nonnegative().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

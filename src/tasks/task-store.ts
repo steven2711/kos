@@ -83,6 +83,28 @@ export function mergeTasks(
   return result;
 }
 
+/**
+ * Re-open tasks stranded by an interrupted or failed run so a re-run resumes
+ * them. `in_progress` (Ctrl+C mid-task) and `failed` (e.g. max-turns) both reset
+ * to `open`; every other status is left untouched. Pure + unit-testable; returns
+ * the reclaimed count for logging. `attempts` is preserved so repeated failures
+ * stay visible.
+ */
+export function reclaimStuckTasks(
+  tasks: KosTask[],
+  now: string,
+): { tasks: KosTask[]; reclaimed: number } {
+  let reclaimed = 0;
+  const next = tasks.map((t) => {
+    if (t.status === "in_progress" || t.status === "failed") {
+      reclaimed += 1;
+      return { ...t, status: "open" as const, updatedAt: now };
+    }
+    return t;
+  });
+  return { tasks: next, reclaimed };
+}
+
 /** Update one task in place (by id) returning a new array. */
 export function updateTask(
   tasks: KosTask[],

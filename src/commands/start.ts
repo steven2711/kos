@@ -34,6 +34,8 @@ const SAFETY_CAP = 50;
 export interface StartOptions {
   /** Build-loop cap (default: run to completion within SAFETY_CAP). */
   maxIterations?: number;
+  /** Per-task agent turn budget; defaults to KOS_MAX_TURNS (env). */
+  maxTurns?: number;
   /** Run the semantic review after the build (default true). */
   analyze?: boolean;
   /** Injectable boundaries for tests; default to the env-selected ones. */
@@ -129,6 +131,7 @@ export async function runStartCommand(
   // 2. Build to completion (the loop self-terminates when no task is ready).
   const code = await runRunCommand(vaultPath, {
     maxIterations: opts.maxIterations ?? SAFETY_CAP,
+    ...(opts.maxTurns !== undefined ? { maxTurns: opts.maxTurns } : {}),
     ...(opts.worker ? { worker: opts.worker } : {}),
     ...(opts.interviewer ? { interviewer: opts.interviewer } : {}),
   });

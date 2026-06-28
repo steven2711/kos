@@ -2,17 +2,19 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { runRunCommand } from "../commands/run.js";
-import { loadTasks } from "../tasks/task-store.js";
+import { loadTasks, saveTasks } from "../tasks/task-store.js";
 import {
   type Worker,
   type WorkerRequest,
   type WorkerResult,
+  MockWorker,
 } from "../workers/claude.js";
 import {
   makeTempVault,
   removeTempVault,
   writeVaultFile,
 } from "./support/tmp-vault.js";
+import { kosTask } from "./support/builders.js";
 import { silenceLoopNarration } from "./support/silence-console.js";
 
 silenceLoopNarration();
@@ -80,5 +82,44 @@ describe("run loop guards", () => {
     const tasks = await loadTasks(dir);
     expect(tasks.some((t) => t.status === "failed")).toBe(true);
     expect(tasks.some((t) => t.status === "complete")).toBe(false);
+  });
+
+  it("resumes stranded tasks on re-run: failed and in_progress are re-opened", async () => {
+    // Simulate a previous run that left two tasks stranded — one that failed
+    // (e.g. max-turns) and one interrupted mid-flight (Ctrl+C). Early createdAt +
+    // critical priority makes the failed one sort ahead of any planner-generated
+    // work, so the single iteration runs it.
+    await saveTasks(dir, [
+      kosTask({
+        id: "T-100",
+        type: "concept_extraction",
+        status: "failed",
+        priority: "critical",
+        attempts: 1,
+        goal: "extract concepts",
+        createdAt: "2000-01-01T00:00:00.000Z",
+      }),
+      kosTask({
+        id: "T-101",
+        type: "domain_modeling",
+        status: "in_progress",
+        goal: "model the domain",
+        createdAt: "2000-01-01T00:00:00.000Z",
+      }),
+    ]);
+
+    const code = await runRunCommand(dir, {
+      maxIterations: 1,
+      worker: new MockWorker(),
+    });
+    expect(code).toBe(0);
+
+    const tasks = await loadTasks(dir);
+    const byId = (id: string): (typeof tasks)[number] | undefined =>
+      tasks.find((t) => t.id === id);
+    // The previously-failed task was reclaimed → open → executed → complete.
+    expect(byId("T-100")?.status).toBe("complete");
+    // The interrupted task was reclaimed to open (not run this single iteration).
+    expect(byId("T-101")?.status).toBe("open");
   });
 });

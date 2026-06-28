@@ -43,6 +43,28 @@ function isTextBlock(block: unknown): block is { type: "text"; text: string } {
   );
 }
 
+/** True for a tool-use block `{ type: "tool_use", name: string, input?: ... }`. */
+function isToolUseBlock(
+  block: unknown,
+): block is { type: "tool_use"; name: string; input?: Record<string, unknown> } {
+  return (
+    typeof block === "object" &&
+    block !== null &&
+    (block as { type?: unknown }).type === "tool_use" &&
+    typeof (block as { name?: unknown }).name === "string"
+  );
+}
+
+/** A one-line progress label for a tool call, e.g. `→ Edit 04 Domain/Foo.md`. */
+function toolProgressLine(
+  name: string,
+  input: Record<string, unknown> | undefined,
+): string {
+  const candidate = input?.["file_path"] ?? input?.["path"] ?? input?.["pattern"];
+  const target = typeof candidate === "string" ? ` ${candidate}` : "";
+  return `→ ${name}${target}`;
+}
+
 /** Best-effort message extraction from an unknown thrown value. */
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -56,6 +78,8 @@ export interface WorkerRequest {
   maxTurns: number;
   model: string;
   task: KosTask;
+  /** Optional live-progress sink, called per tool-use as the task streams. */
+  onProgress?: (line: string) => void;
 }
 
 export interface WorkerResult {
@@ -124,6 +148,9 @@ class ClaudeWorker implements Worker {
           const blocks = message.message?.content ?? message.content ?? [];
           for (const b of blocks) {
             if (isTextBlock(b)) finalText += b.text;
+            else if (isToolUseBlock(b)) {
+              req.onProgress?.(toolProgressLine(b.name, b.input));
+            }
           }
         } else if (message.type === "result") {
           if (message.subtype === "success") {

@@ -17,10 +17,12 @@ import {
   loadTasks,
   saveTasks,
   updateTask,
+  reclaimStuckTasks,
   renderOpenTaskQueue,
   renderTaskQueue,
   isoNow,
 } from "../tasks/task-store.js";
+import { loadEnv } from "../config/env.js";
 import { selectNextTask } from "../scheduler/scheduler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
 import { type KosTask, isResearchType, isPromotionType } from "../tasks/task-model.js";
@@ -34,7 +36,6 @@ import { type Interviewer, selectInterviewer } from "../workers/interviewer.js";
 import { runFounderInterview } from "./interview.js";
 
 const ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"];
-const MAX_TURNS = 30;
 const MODEL = "claude-opus-4-8";
 
 async function loadPromptTemplate(): Promise<string> {
@@ -60,6 +61,8 @@ async function refreshQueues(vaultPath: string, tasks: KosTask[]): Promise<void>
 
 export interface RunOptions {
   maxIterations: number;
+  /** Per-task agent turn budget; defaults to KOS_MAX_TURNS (env). */
+  maxTurns?: number;
   worker?: Worker; // injectable for tests
   interviewer?: Interviewer; // injectable for tests
 }
@@ -70,10 +73,22 @@ export async function runRunCommand(
 ): Promise<number> {
   const worker = opts.worker ?? selectWorker();
   const interviewer = opts.interviewer ?? selectInterviewer();
+  const maxTurns = opts.maxTurns ?? loadEnv().KOS_MAX_TURNS;
   const template = await loadPromptTemplate();
   console.log(
     `Starting controlled run: up to ${opts.maxIterations} iteration(s), worker=${worker.name}, interviewer=${interviewer.name}.`,
   );
+
+  // Resume any work stranded by a previous interrupted/failed run: re-open
+  // in_progress (Ctrl+C) and failed (e.g. max-turns) tasks so the loop retries.
+  const { tasks: reclaimedTasks, reclaimed } = reclaimStuckTasks(
+    await loadTasks(vaultPath),
+    isoNow(),
+  );
+  if (reclaimed > 0) {
+    await saveTasks(vaultPath, reclaimedTasks);
+    console.log(`Resumed ${reclaimed} stranded task(s) from a previous run.`);
+  }
 
   for (let i = 1; i <= opts.maxIterations; i++) {
     console.log(`\n── Iteration ${i}/${opts.maxIterations} ──`);
@@ -114,9 +129,10 @@ export async function runRunCommand(
           "You are a careful KOS documentation contributor. Do only the assigned task. Never edit 01 Kernel/.",
         prompt: renderPrompt(template, task),
         allowedTools: ALLOWED_TOOLS,
-        maxTurns: MAX_TURNS,
+        maxTurns,
         model: MODEL,
         task,
+        onProgress: (line) => console.log(`  ${line}`),
       };
       workerResult = await worker.runTask(req);
     }
@@ -146,7 +162,9 @@ export async function runRunCommand(
     tasks = updateTask(
       tasks,
       task.id,
-      { status: passed ? "complete" : "failed" },
+      passed
+        ? { status: "complete" }
+        : { status: "failed", attempts: (task.attempts ?? 0) + 1 },
       now,
     );
     await saveTasks(vaultPath, tasks);

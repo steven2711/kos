@@ -6,9 +6,10 @@ import {
   saveTasks,
   mergeTasks,
   updateTask,
+  reclaimStuckTasks,
   renderOpenTaskQueue,
 } from "../tasks/task-store.js";
-import { taskSpec as spec } from "./support/builders.js";
+import { taskSpec as spec, kosTask, FIXED_TIMESTAMP } from "./support/builders.js";
 import { makeTempVault, removeTempVault } from "./support/tmp-vault.js";
 
 let dir: string;
@@ -128,6 +129,36 @@ describe("task-store", () => {
     const after = mergeTasks(tasks, [spec()], "t3");
     expect(after).toHaveLength(1);
     expect(after[0]?.status).toBe("complete");
+  });
+
+  it("reclaims interrupted and failed tasks back to open, leaving others untouched", () => {
+    const tasks = [
+      kosTask({ id: "T-001", status: "in_progress" }),
+      kosTask({ id: "T-002", status: "failed", attempts: 2 }),
+      kosTask({ id: "T-003", status: "open" }),
+      kosTask({ id: "T-004", status: "complete" }),
+      kosTask({ id: "T-005", status: "blocked" }),
+    ];
+    const { tasks: next, reclaimed } = reclaimStuckTasks(tasks, "2026-06-28T00:00:00.000Z");
+
+    expect(reclaimed).toBe(2);
+    const byId = (id: string): (typeof next)[number] | undefined =>
+      next.find((t) => t.id === id);
+    expect(byId("T-001")?.status).toBe("open");
+    expect(byId("T-002")?.status).toBe("open");
+    // attempts are preserved so repeated failures stay visible.
+    expect(byId("T-002")?.attempts).toBe(2);
+    // Re-opened tasks get a fresh updatedAt; untouched ones keep theirs.
+    expect(byId("T-001")?.updatedAt).toBe("2026-06-28T00:00:00.000Z");
+    expect(byId("T-003")?.status).toBe("open");
+    expect(byId("T-003")?.updatedAt).toBe(FIXED_TIMESTAMP);
+    expect(byId("T-004")?.status).toBe("complete");
+    expect(byId("T-005")?.status).toBe("blocked");
+  });
+
+  it("reports zero reclaimed when nothing is stranded", () => {
+    const tasks = [kosTask({ id: "T-001", status: "open" })];
+    expect(reclaimStuckTasks(tasks, "t").reclaimed).toBe(0);
   });
 
   it("renders an open-task queue table", () => {

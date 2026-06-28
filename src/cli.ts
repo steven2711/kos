@@ -28,7 +28,7 @@ import { runAnalyzeCommand } from "./commands/analyze.js";
 import { runResearchCommand } from "./commands/research.js";
 import { runPromoteCommand, type PromoteOptions } from "./commands/promote.js";
 import { runExplainCommand } from "./commands/explain.js";
-import { runRunCommand } from "./commands/run.js";
+import { runRunCommand, type RunOptions } from "./commands/run.js";
 
 /**
  * Resolve and validate the vault a command should operate on. With no explicit
@@ -47,6 +47,16 @@ function resolveVault(p?: string): string | null {
     return null;
   }
   return dir;
+}
+
+/** Parse a positive-integer CLI option; print an error and return null if invalid. */
+function parsePositiveInt(raw: string, flag: string): number | null {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    console.error(`${flag} must be a positive integer`);
+    return null;
+  }
+  return n;
 }
 
 async function main(): Promise<void> {
@@ -104,6 +114,10 @@ async function main(): Promise<void> {
       "--max-iterations <n>",
       "cap the build loop (default: run to completion)",
     )
+    .option(
+      "--max-turns <n>",
+      "per-task agent turn budget (default: KOS_MAX_TURNS, else 300)",
+    )
     .option("--no-analyze", "skip the semantic review after building")
     .description(
       "One command: seed tasks from 00 Inbox/, build to completion, review, and report",
@@ -111,7 +125,7 @@ async function main(): Promise<void> {
     .action(
       async (
         vaultPath: string | undefined,
-        options: { maxIterations?: string; analyze?: boolean },
+        options: { maxIterations?: string; maxTurns?: string; analyze?: boolean },
       ) => {
         const vault = resolveVault(vaultPath);
         if (vault === null) {
@@ -120,13 +134,20 @@ async function main(): Promise<void> {
         }
         const opts: StartOptions = {};
         if (options.maxIterations !== undefined) {
-          const max = parseInt(options.maxIterations, 10);
-          if (!Number.isFinite(max) || max < 1) {
-            console.error("--max-iterations must be a positive integer");
+          const max = parsePositiveInt(options.maxIterations, "--max-iterations");
+          if (max === null) {
             process.exitCode = 1;
             return;
           }
           opts.maxIterations = max;
+        }
+        if (options.maxTurns !== undefined) {
+          const turns = parsePositiveInt(options.maxTurns, "--max-turns");
+          if (turns === null) {
+            process.exitCode = 1;
+            return;
+          }
+          opts.maxTurns = turns;
         }
         if (options.analyze === false) opts.analyze = false;
         process.exitCode = await runStartCommand(vault, opts);
@@ -230,23 +251,38 @@ async function main(): Promise<void> {
     .command("run")
     .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .option("--max-iterations <n>", "maximum tasks to run", "3")
+    .option(
+      "--max-turns <n>",
+      "per-task agent turn budget (default: KOS_MAX_TURNS, else 300)",
+    )
     .description("Run the controlled loop: one Claude-powered task at a time")
-    .action(async (vaultPath: string | undefined, options: { maxIterations: string }) => {
-      const vault = resolveVault(vaultPath);
-      if (vault === null) {
-        process.exitCode = 1;
-        return;
-      }
-      const max = parseInt(options.maxIterations, 10);
-      if (!Number.isFinite(max) || max < 1) {
-        console.error("--max-iterations must be a positive integer");
-        process.exitCode = 1;
-        return;
-      }
-      process.exitCode = await runRunCommand(vault, {
-        maxIterations: max,
-      });
-    });
+    .action(
+      async (
+        vaultPath: string | undefined,
+        options: { maxIterations: string; maxTurns?: string },
+      ) => {
+        const vault = resolveVault(vaultPath);
+        if (vault === null) {
+          process.exitCode = 1;
+          return;
+        }
+        const max = parsePositiveInt(options.maxIterations, "--max-iterations");
+        if (max === null) {
+          process.exitCode = 1;
+          return;
+        }
+        const runOpts: RunOptions = { maxIterations: max };
+        if (options.maxTurns !== undefined) {
+          const turns = parsePositiveInt(options.maxTurns, "--max-turns");
+          if (turns === null) {
+            process.exitCode = 1;
+            return;
+          }
+          runOpts.maxTurns = turns;
+        }
+        process.exitCode = await runRunCommand(vault, runOpts);
+      },
+    );
 
   await program.parseAsync(process.argv);
 }

@@ -40,4 +40,14 @@ describe("loadEnv", () => {
   it("rejects an empty ANTHROPIC_API_KEY", () => {
     expect(() => loadEnv({ ANTHROPIC_API_KEY: "" })).toThrow();
   });
+
+  it("defaults KOS_MAX_TURNS to 300 and coerces a numeric string", () => {
+    expect(loadEnv({}).KOS_MAX_TURNS).toBe(300);
+    expect(loadEnv({ KOS_MAX_TURNS: "500" }).KOS_MAX_TURNS).toBe(500);
+  });
+
+  it("rejects a non-numeric or non-positive KOS_MAX_TURNS", () => {
+    expect(() => loadEnv({ KOS_MAX_TURNS: "lots" })).toThrow();
+    expect(() => loadEnv({ KOS_MAX_TURNS: "0" })).toThrow();
+  });
 });
