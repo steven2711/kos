@@ -205,6 +205,6 @@ export async function runInitCommand(
   console.log("");
   console.log("Next:");
   console.log(`  1. Drop your .md docs into ${path.join(vaultDir, "00 Inbox")}/`);
-  console.log(`  2. Run: kos start ${vaultDir}`);
+  console.log(`  2. cd ${projectDir} && kos start`);
   return 0;
 }

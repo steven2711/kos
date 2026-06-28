@@ -6,7 +6,7 @@
  * Project files (src/, node_modules/, dist/, package.json, etc.) are never
  * treated as vault documents.
  */
-import { promises as fs } from "node:fs";
+import { promises as fs, existsSync } from "node:fs";
 import path from "node:path";
 import fg from "fast-glob";
 import { parseFile, type ParsedFile } from "./frontmatter.js";
@@ -31,6 +31,23 @@ export const VAULT_FOLDERS = [
 
 /** Root-level markdown files that are genuine vault documents. */
 const ROOT_DOCS = ["Home.md", "README.md"] as const;
+
+/** True if `dir` looks like a KOS vault (has the Kernel layer). */
+export function looksLikeVault(dir: string): boolean {
+  return existsSync(path.join(dir, KERNEL_FOLDER));
+}
+
+/**
+ * Resolve which vault a command operates on. An explicit path wins (resolved
+ * against `cwd`). With no path, prefer a nested `vault/` (init's layout), else
+ * the cwd itself. `cwd` is a parameter so this is testable without process.chdir.
+ */
+export function resolveVaultDir(explicit: string | undefined, cwd: string): string {
+  if (explicit !== undefined && explicit !== "") return path.resolve(cwd, explicit);
+  const nested = path.join(cwd, "vault");
+  if (looksLikeVault(nested)) return nested;
+  return cwd;
+}
 
 /** The eight "knowledge layer" folders used for coverage scoring. */
 export const KNOWLEDGE_LAYERS = [

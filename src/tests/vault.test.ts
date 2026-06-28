@@ -7,6 +7,8 @@ import {
   snapshotKernel,
   kernelChanges,
   knowledgeLayerCoverage,
+  looksLikeVault,
+  resolveVaultDir,
   type VaultDoc,
 } from "../core/vault.js";
 import { vaultDoc, markdownDoc } from "./support/builders.js";
@@ -31,6 +33,39 @@ describe("knowledgeLayerCoverage", () => {
     expect(coverage.perLayer["02 Vision"]).toBe(false);
     expect(coverage.perLayer["03 Product"]).toBe(false);
     expect(coverage.perLayer["05 Architecture"]).toBe(false);
+  });
+});
+
+describe("resolveVaultDir (CLI path discovery)", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await makeTempVault("kos-resolve-");
+  });
+  afterEach(async () => {
+    await removeTempVault(dir);
+  });
+
+  it("uses an explicit path verbatim, even before the vault exists", () => {
+    // An override always wins — discovery never runs, so it need not be a vault yet.
+    expect(resolveVaultDir("some/where", dir)).toBe(path.resolve(dir, "some/where"));
+    expect(resolveVaultDir("/abs/vault", dir)).toBe(path.resolve("/abs/vault"));
+  });
+
+  it("discovers a nested vault/ — init's layout — from the project root", async () => {
+    await writeVaultFile(dir, "vault/01 Kernel/Constitution.md", "# C\n");
+    expect(resolveVaultDir(undefined, dir)).toBe(path.join(dir, "vault"));
+  });
+
+  it("falls back to the cwd when the cwd itself is the vault", async () => {
+    await writeVaultFile(dir, "01 Kernel/Constitution.md", "# C\n");
+    // No nested vault/, but the cwd has a Kernel → operate on the cwd.
+    expect(resolveVaultDir(undefined, dir)).toBe(dir);
+  });
+
+  it("returns the cwd (a non-vault) when nothing is found, for the caller to reject", () => {
+    // makeTempVault only seeds 90 Meta/, so there is no Kernel anywhere.
+    expect(resolveVaultDir(undefined, dir)).toBe(dir);
+    expect(looksLikeVault(dir)).toBe(false);
   });
 });
 

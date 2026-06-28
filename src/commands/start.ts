@@ -59,15 +59,15 @@ function nextStep(tasks: KosTask[]): string {
   const open = tasks.filter(isOpen);
   const interview = open.find((t) => t.type === "founder_interview");
   if (interview) {
-    return "Answer the founder questions in 90 Meta/Founder Questions.md, then re-run `kos start .`.";
+    return "Answer the founder questions in 90 Meta/Founder Questions.md, then re-run `kos start`.";
   }
   const proposals = open.filter((t) => isPromotionType(t.type));
   if (proposals.length > 0) {
-    return `Review ${proposals.length} knowledge proposal(s): run \`kos promote .\`.`;
+    return `Review ${proposals.length} knowledge proposal(s): run \`kos promote\`.`;
   }
   const next = selectNextTask(tasks);
   if (next) {
-    return `Continue building: re-run \`kos start .\` (next up — ${next.id} ${next.type}).`;
+    return `Continue building: re-run \`kos start\` (next up — ${next.id} ${next.type}).`;
   }
   if (open.length > 0) {
     return "Remaining work is blocked on dependencies; see 90 Meta/Execution Plan.md.";

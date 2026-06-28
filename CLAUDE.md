@@ -30,24 +30,27 @@ npx vitest run src/tests/scoring.test.ts
 npx vitest run -t "computeScore is monotonic"
 ```
 
-CLI subcommands (the vault is always the first argument):
+CLI subcommands. The vault path is **optional** on every command except `init`: with none, the vault is
+auto-discovered relative to the cwd — a nested `vault/` (init's layout), else the cwd itself if it is a
+vault (`looksLikeVault`/`resolveVaultDir` in `core/vault.ts`). Pass an explicit path to override.
 
 ```bash
 npm run dev init     <projectDir>            # scaffold a new project: link-clean starter vault under <projectDir>/vault
-npm run dev validate <vaultPath>             # deterministic Kernel checks + Validation Report
-npm run dev ingest   <vaultPath> <inputFile> # copy input into 00 Inbox, seed 6 tasks
-npm run dev start    <vaultPath>             # one command: seed from 00 Inbox/, build to completion, review, report
-npm run dev compile  <vaultPath>             # validate + plan tasks + write reports
-npm run dev analyze  <vaultPath>             # LLM Semantic Reviewer → Semantic Report + advisory tasks
-npm run dev explain  <vaultPath>             # score, blockers, next task, remaining work
-npm run dev run      <vaultPath> --max-iterations 3   # the controlled loop (excludes research/proposal tasks)
-npm run dev research <vaultPath> [query]     # Research Worker → cited evidence into 07 Research/
-npm run dev promote  <vaultPath> [--proposal P-001 | --approve | --reject | --yes]  # founder review → merge
+npm run dev validate [vaultPath]             # deterministic Kernel checks + Validation Report
+npm run dev ingest   <inputFile> [vaultPath] # copy input into 00 Inbox, seed 6 tasks
+npm run dev start    [vaultPath]             # one command: seed from 00 Inbox/, build to completion, review, report
+npm run dev compile  [vaultPath]             # validate + plan tasks + write reports
+npm run dev analyze  [vaultPath]             # LLM Semantic Reviewer → Semantic Report + advisory tasks
+npm run dev explain  [vaultPath]             # score, blockers, next task, remaining work
+npm run dev run      [vaultPath] --max-iterations 3   # the controlled loop (excludes research/proposal tasks)
+npm run dev research [query] [vaultPath]     # Research Worker → cited evidence into 07 Research/
+npm run dev promote  [vaultPath] [--proposal P-001 | --approve | --reject | --yes]  # founder review → merge
 ```
 
-Use `.` as `<vaultPath>` to operate on this repo's own vault. `init` is the exception: it takes a
-*project* directory and creates the vault under `<projectDir>/vault`, so subsequent commands take
-`<projectDir>/vault` as their `<vaultPath>`.
+Use `.` (or just omit the path) to operate on this repo's own vault. For `ingest`/`research` the
+discoverable vault is the optional *trailing* argument, so the required/common positional
+(`<inputFile>` / `[query]`) stays unambiguous. `init` is the exception: it takes a *project* directory
+and creates the vault under `<projectDir>/vault`, after which `cd <projectDir> && kos start` just works.
 
 The two foundational KOS ADRs (`ADR-0000-adopt-knowledge-operating-system`,
 `ADR-0001-template-files-declare-produced-type`) ship under `06 Decisions/Foundational/` — they're

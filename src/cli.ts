@@ -2,18 +2,23 @@
 /**
  * KOS CLI v0 entry point.
  *
+ * Every vault command takes an *optional* path; with none it auto-discovers the
+ * vault (a nested `vault/`, else the current directory). `init` is the exception
+ * — it creates a vault under <projectDir>/vault.
+ *
  *   kos init     <projectDir>
- *   kos validate <vaultPath>
- *   kos ingest   <vaultPath> <inputFile>
- *   kos start    <vaultPath>
- *   kos compile  <vaultPath>
- *   kos analyze  <vaultPath>
- *   kos research <vaultPath> [query]
- *   kos explain  <vaultPath>
- *   kos run      <vaultPath> --max-iterations 3
+ *   kos validate [vaultPath]
+ *   kos ingest   <inputFile> [vaultPath]
+ *   kos start    [vaultPath]
+ *   kos compile  [vaultPath]
+ *   kos analyze  [vaultPath]
+ *   kos research [vaultPath] [query]
+ *   kos explain  [vaultPath]
+ *   kos run      [vaultPath] --max-iterations 3
  */
 import { Command } from "commander";
 import path from "node:path";
+import { resolveVaultDir, looksLikeVault } from "./core/vault.js";
 import { runInitCommand, type InitOptions } from "./commands/init.js";
 import { runValidateCommand } from "./commands/validate.js";
 import { runIngestCommand } from "./commands/ingest.js";
@@ -25,8 +30,23 @@ import { runPromoteCommand, type PromoteOptions } from "./commands/promote.js";
 import { runExplainCommand } from "./commands/explain.js";
 import { runRunCommand } from "./commands/run.js";
 
-function resolveVault(p: string): string {
-  return path.resolve(p);
+/**
+ * Resolve and validate the vault a command should operate on. With no explicit
+ * path, the vault is discovered relative to the cwd (a nested `vault/`, else the
+ * cwd). Returns `null` (after printing a clear message) when no vault is found.
+ */
+function resolveVault(p?: string): string | null {
+  const dir = resolveVaultDir(p, process.cwd());
+  if (!looksLikeVault(dir)) {
+    console.error(
+      p !== undefined
+        ? `No KOS vault found at ${dir} (no 01 Kernel/).`
+        : "No KOS vault found here. Run from a project created by `kos init` " +
+            "(expects ./vault or the current dir to be a vault), or pass a vault path.",
+    );
+    return null;
+  }
+  return dir;
 }
 
 async function main(): Promise<void> {
@@ -46,32 +66,40 @@ async function main(): Promise<void> {
     .action(async (projectDir: string, options: { force?: boolean }) => {
       const opts: InitOptions = {};
       if (options.force === true) opts.force = true;
-      process.exitCode = await runInitCommand(resolveVault(projectDir), opts);
+      // init targets a not-yet-existing vault, so it resolves the path directly.
+      process.exitCode = await runInitCommand(path.resolve(projectDir), opts);
     });
 
   program
     .command("validate")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .description("Validate the vault against the Kernel rules and write a report")
-    .action(async (vaultPath: string) => {
-      process.exitCode = await runValidateCommand(resolveVault(vaultPath));
+    .action(async (vaultPath?: string) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
+      process.exitCode = await runValidateCommand(vault);
     });
 
   program
     .command("ingest")
-    .argument("<vaultPath>", "path to the KOS vault")
     .argument("<inputFile>", "idea/PRD markdown file to ingest")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .description("Capture an input into the Inbox and seed the task queue")
-    .action(async (vaultPath: string, inputFile: string) => {
-      process.exitCode = await runIngestCommand(
-        resolveVault(vaultPath),
-        path.resolve(inputFile),
-      );
+    .action(async (inputFile: string, vaultPath?: string) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
+      process.exitCode = await runIngestCommand(vault, path.resolve(inputFile));
     });
 
   program
     .command("start")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .option(
       "--max-iterations <n>",
       "cap the build loop (default: run to completion)",
@@ -82,9 +110,14 @@ async function main(): Promise<void> {
     )
     .action(
       async (
-        vaultPath: string,
+        vaultPath: string | undefined,
         options: { maxIterations?: string; analyze?: boolean },
       ) => {
+        const vault = resolveVault(vaultPath);
+        if (vault === null) {
+          process.exitCode = 1;
+          return;
+        }
         const opts: StartOptions = {};
         if (options.maxIterations !== undefined) {
           const max = parseInt(options.maxIterations, 10);
@@ -96,42 +129,57 @@ async function main(): Promise<void> {
           opts.maxIterations = max;
         }
         if (options.analyze === false) opts.analyze = false;
-        process.exitCode = await runStartCommand(resolveVault(vaultPath), opts);
+        process.exitCode = await runStartCommand(vault, opts);
       },
     );
 
   program
     .command("compile")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .description("Validate + analyse the vault; write reports and refresh tasks")
-    .action(async (vaultPath: string) => {
-      process.exitCode = await runCompileCommand(resolveVault(vaultPath));
+    .action(async (vaultPath?: string) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
+      process.exitCode = await runCompileCommand(vault);
     });
 
   program
     .command("analyze")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .description(
       "Run the LLM Semantic Reviewer: write the Semantic Report and propose advisory tasks",
     )
-    .action(async (vaultPath: string) => {
-      process.exitCode = await runAnalyzeCommand(resolveVault(vaultPath));
+    .action(async (vaultPath?: string) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
+      process.exitCode = await runAnalyzeCommand(vault);
     });
 
   program
     .command("research")
-    .argument("<vaultPath>", "path to the KOS vault")
     .argument("[query]", "optional one-off research query")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .description(
       "Run the Research Worker: gather cited evidence into 07 Research/ and propose follow-ups",
     )
-    .action(async (vaultPath: string, query: string | undefined) => {
-      process.exitCode = await runResearchCommand(resolveVault(vaultPath), query);
+    .action(async (query: string | undefined, vaultPath: string | undefined) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
+      process.exitCode = await runResearchCommand(vault, query);
     });
 
   program
     .command("promote")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .option("--proposal <id>", "review only this proposal id (P-NNN)")
     .option("--approve", "approve every pending proposal (non-interactive)")
     .option("--reject", "reject every pending proposal (non-interactive)")
@@ -142,7 +190,7 @@ async function main(): Promise<void> {
     )
     .action(
       async (
-        vaultPath: string,
+        vaultPath: string | undefined,
         options: {
           proposal?: string;
           approve?: boolean;
@@ -151,36 +199,51 @@ async function main(): Promise<void> {
           yes?: boolean;
         },
       ) => {
+        const vault = resolveVault(vaultPath);
+        if (vault === null) {
+          process.exitCode = 1;
+          return;
+        }
         const opts: PromoteOptions = {};
         if (options.proposal !== undefined) opts.proposalId = options.proposal;
         if (options.approve === true || options.yes === true) opts.decision = "approve";
         else if (options.reject === true) opts.decision = "reject";
         else if (options.requestChanges === true) opts.decision = "request_changes";
-        process.exitCode = await runPromoteCommand(resolveVault(vaultPath), opts);
+        process.exitCode = await runPromoteCommand(vault, opts);
       },
     );
 
   program
     .command("explain")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .description("Explain the score, blockers, next task, and remaining work")
-    .action(async (vaultPath: string) => {
-      process.exitCode = await runExplainCommand(resolveVault(vaultPath));
+    .action(async (vaultPath?: string) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
+      process.exitCode = await runExplainCommand(vault);
     });
 
   program
     .command("run")
-    .argument("<vaultPath>", "path to the KOS vault")
+    .argument("[vaultPath]", "path to the KOS vault (default: auto-discover)")
     .option("--max-iterations <n>", "maximum tasks to run", "3")
     .description("Run the controlled loop: one Claude-powered task at a time")
-    .action(async (vaultPath: string, options: { maxIterations: string }) => {
+    .action(async (vaultPath: string | undefined, options: { maxIterations: string }) => {
+      const vault = resolveVault(vaultPath);
+      if (vault === null) {
+        process.exitCode = 1;
+        return;
+      }
       const max = parseInt(options.maxIterations, 10);
       if (!Number.isFinite(max) || max < 1) {
         console.error("--max-iterations must be a positive integer");
         process.exitCode = 1;
         return;
       }
-      process.exitCode = await runRunCommand(resolveVault(vaultPath), {
+      process.exitCode = await runRunCommand(vault, {
         maxIterations: max,
       });
     });
