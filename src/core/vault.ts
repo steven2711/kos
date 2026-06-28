@@ -64,6 +64,7 @@ const GENERATED_META_FILES = new Set([
   "Execution Plan.md",
   "Founder Questions.md",
   "Interview Log.md",
+  "Semantic Report.md",
 ]);
 
 export interface VaultDoc {

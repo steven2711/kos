@@ -7,6 +7,7 @@
  */
 import { type KosTask, type Priority, type TaskType, type TaskSpec } from "../tasks/task-model.js";
 import type { VaultAnalysis } from "../core/compiler.js";
+import type { SemanticFinding, SemanticReview } from "../core/semantic-rules.js";
 
 const LAYER_BY_TYPE: Partial<Record<TaskType, string>> = {
   vision_expansion: "02 Vision",
@@ -148,10 +149,12 @@ export function deriveCompilerTasks(analysis: VaultAnalysis): KosTask[] {
   // type+goal prevents re-asking once an interview is complete.
   specs.push(...deriveFounderTasks(analysis));
 
-  // Materialise with placeholder ids/timestamps; the store reassigns them.
+  // Materialise with placeholder ids/timestamps; the store reassigns them. All
+  // of this is required work derived from the deterministic analysis.
   return specs.map((s, i) => ({
     ...s,
     id: `TMP-${i}`,
+    origin: "compiler" as const,
     createdAt: "",
     updatedAt: "",
   }));
@@ -231,6 +234,98 @@ function deriveFounderTasks(analysis: VaultAnalysis): TaskSpec[] {
   }
 
   return specs;
+}
+
+/**
+ * Turn a Semantic Review into **optional** work. Every semantic task is
+ * `priority: "low"` with `origin: "semantic"`, so required deterministic work
+ * always schedules first and advisory work never blocks readiness. Mapping:
+ *
+ *  - `possible_contradiction` (any confidence) → a `founder_interview` (ask,
+ *    never assume);
+ *  - `recommendation` with medium/high confidence → an actionable doc/research
+ *    task, routed by the cited layer;
+ *  - everything else (`suggestion`, `observation`, any low-confidence finding) →
+ *    report-only, not promoted to a task.
+ *
+ * Goal text is derived from the finding class + sorted cited documents so the
+ * non-deterministic reviewer dedupes via `mergeTasks` (type+goal) across runs
+ * rather than spawning near-duplicate tasks.
+ */
+export function deriveSemanticTasks(review: SemanticReview): KosTask[] {
+  const specs: TaskSpec[] = [];
+  for (const finding of review.findings) {
+    const spec = semanticTaskSpec(finding);
+    if (spec !== null) specs.push(spec);
+  }
+  return specs.map((s, i) => ({
+    ...s,
+    id: `TMP-${i}`,
+    origin: "semantic" as const,
+    createdAt: "",
+    updatedAt: "",
+  }));
+}
+
+/** A readable, run-stable label from the documents a finding cites. */
+function docsLabel(documents: string[]): string {
+  const sorted = documents
+    .map((d) => d.trim())
+    .filter((d) => d !== "")
+    .sort();
+  return sorted.length > 0 ? sorted.join(" ↔ ") : "the vault";
+}
+
+/** Route an actionable recommendation to a task type by the layer it cites. */
+function recommendationType(documents: string[]): TaskType {
+  const inLayer = (layer: string): boolean =>
+    documents.some((d) => d.startsWith(layer));
+  if (inLayer("05 Architecture")) return "architecture_research";
+  if (inLayer("08 Business")) return "business_research";
+  return "documentation_repair";
+}
+
+/** Map a single finding to an optional task spec, or null to leave it report-only. */
+function semanticTaskSpec(finding: SemanticFinding): TaskSpec | null {
+  const label = docsLabel(finding.supportingDocuments);
+
+  if (finding.class === "possible_contradiction") {
+    return {
+      type: "founder_interview",
+      status: "open",
+      priority: "low",
+      goal: `Resolve a possible contradiction involving ${label}`,
+      inputs: finding.supportingDocuments,
+      expectedOutputs: [
+        "00 Inbox/Interviews/Interview-<timestamp>.md capturing the founder's answers",
+      ],
+      acceptanceCriteria: ["Every question has a founder answer recorded"],
+      dependencies: [],
+      questions: [`${finding.title} — ${finding.reasoning} (${finding.recommendedAction})`],
+    };
+  }
+
+  if (
+    finding.class === "recommendation" &&
+    (finding.confidence === "medium" || finding.confidence === "high")
+  ) {
+    return {
+      type: recommendationType(finding.supportingDocuments),
+      status: "open",
+      priority: "low",
+      goal: `Address a semantic recommendation involving ${label}`,
+      inputs: finding.supportingDocuments,
+      expectedOutputs: ["Documents updated or added to address the recommendation"],
+      acceptanceCriteria: [
+        finding.recommendedAction,
+        "No new validation errors introduced",
+      ],
+      dependencies: [],
+    };
+  }
+
+  // suggestion / observation / low-confidence → advisory only, report-only.
+  return null;
 }
 
 function layerTaskMeta(layer: string): { type: TaskType; priority: Priority } {

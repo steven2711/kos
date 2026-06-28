@@ -2,12 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   seedIngestTasks,
   deriveCompilerTasks,
+  deriveSemanticTasks,
   inferDependencies,
   buildTaskGraph,
 } from "../planner/planner.js";
 import { mergeTasks } from "../tasks/task-store.js";
+import { selectNextTask } from "../scheduler/scheduler.js";
 import { compileDocs } from "../core/compiler.js";
 import type { VaultAnalysis } from "../core/compiler.js";
+import { semanticReview, semanticFinding, kosTask } from "./support/builders.js";
 
 function byId<T extends { id: string }>(items: T[], id: string): T {
   const found = items.find((i) => i.id === id);
@@ -129,6 +132,66 @@ describe("planner", () => {
     // Only the strategy question is surfaced; the build-script one is not founder work.
     expect(strategic?.questions?.some((q) => /pricing strategy/i.test(q))).toBe(true);
     expect(strategic?.questions?.some((q) => /build script/i.test(q))).toBe(false);
+  });
+
+  it("turns a possible contradiction into a low-priority founder interview", () => {
+    const review = semanticReview([
+      semanticFinding({
+        class: "possible_contradiction",
+        confidence: "low",
+        title: "Event sourcing vs CRUD MVP",
+        supportingDocuments: ["05 Architecture/Spec.md", "03 Product/PRD.md"],
+      }),
+    ]);
+    const tasks = deriveSemanticTasks(review);
+    expect(tasks).toHaveLength(1);
+    const t = tasks[0];
+    expect(t?.type).toBe("founder_interview");
+    expect(t?.priority).toBe("low");
+    expect(t?.origin).toBe("semantic");
+    // The founder is asked, never assumed for; the contradiction is the question.
+    expect((t?.questions ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("routes a confident recommendation to a research task by cited layer", () => {
+    const review = semanticReview([
+      semanticFinding({
+        class: "recommendation",
+        confidence: "high",
+        supportingDocuments: ["05 Architecture/Spec.md"],
+        recommendedAction: "Investigate the scaling approach.",
+      }),
+    ]);
+    const tasks = deriveSemanticTasks(review);
+    expect(tasks[0]?.type).toBe("architecture_research");
+    expect(tasks[0]?.priority).toBe("low");
+    expect(tasks[0]?.acceptanceCriteria).toContain("Investigate the scaling approach.");
+  });
+
+  it("leaves suggestions and low-confidence findings as report-only (no task)", () => {
+    const review = semanticReview([
+      semanticFinding({ class: "suggestion", confidence: "high" }),
+      semanticFinding({ class: "observation", confidence: "medium" }),
+      semanticFinding({ class: "recommendation", confidence: "low" }),
+    ]);
+    expect(deriveSemanticTasks(review)).toHaveLength(0);
+  });
+
+  it("never lets advisory semantic work outrank required compiler work", () => {
+    const required = kosTask({
+      id: "T-001",
+      type: "adr_creation",
+      priority: "medium",
+      origin: "compiler",
+    });
+    const advisory = kosTask({
+      id: "T-002",
+      type: "documentation_repair",
+      priority: "low",
+      goal: "advisory",
+      origin: "semantic",
+    });
+    expect(selectNextTask([advisory, required])?.id).toBe("T-001");
   });
 
   it("compiler no longer returns tasks (read-only)", () => {

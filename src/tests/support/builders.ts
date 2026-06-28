@@ -11,6 +11,10 @@
  */
 import { type KosTask, type TaskSpec } from "../../tasks/task-model.js";
 import { type VaultDoc } from "../../core/vault.js";
+import {
+  type SemanticFinding,
+  type SemanticReview,
+} from "../../core/semantic-rules.js";
 import { parseFile } from "../../core/frontmatter.js";
 
 /** A fixed calendar date so frontmatter/date assertions stay deterministic. */
@@ -42,6 +46,26 @@ export function kosTask(over: Partial<KosTask> = {}): KosTask {
     updatedAt: FIXED_TIMESTAMP,
     ...over,
   };
+}
+
+/** A `SemanticFinding` with valid defaults (a medium-confidence observation). */
+export function semanticFinding(
+  over: Partial<SemanticFinding> = {},
+): SemanticFinding {
+  return {
+    class: "observation",
+    confidence: "medium",
+    title: "A finding",
+    reasoning: "Because the documents appear to disagree.",
+    supportingDocuments: ["02 Vision/Vision.md"],
+    recommendedAction: "Review the cited documents.",
+    ...over,
+  };
+}
+
+/** A `SemanticReview` wrapping the given findings (defaults to one finding). */
+export function semanticReview(findings?: SemanticFinding[]): SemanticReview {
+  return { findings: findings ?? [semanticFinding()] };
 }
 
 export interface MarkdownDocOptions {

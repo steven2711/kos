@@ -5,6 +5,7 @@
  *   kos validate <vaultPath>
  *   kos ingest   <vaultPath> <inputFile>
  *   kos compile  <vaultPath>
+ *   kos analyze  <vaultPath>
  *   kos explain  <vaultPath>
  *   kos run      <vaultPath> --max-iterations 3
  */
@@ -13,6 +14,7 @@ import path from "node:path";
 import { runValidateCommand } from "./commands/validate.js";
 import { runIngestCommand } from "./commands/ingest.js";
 import { runCompileCommand } from "./commands/compile.js";
+import { runAnalyzeCommand } from "./commands/analyze.js";
 import { runExplainCommand } from "./commands/explain.js";
 import { runRunCommand } from "./commands/run.js";
 
@@ -53,6 +55,16 @@ async function main(): Promise<void> {
     .description("Validate + analyse the vault; write reports and refresh tasks")
     .action(async (vaultPath: string) => {
       process.exitCode = await runCompileCommand(resolveVault(vaultPath));
+    });
+
+  program
+    .command("analyze")
+    .argument("<vaultPath>", "path to the KOS vault")
+    .description(
+      "Run the LLM Semantic Reviewer: write the Semantic Report and propose advisory tasks",
+    )
+    .action(async (vaultPath: string) => {
+      process.exitCode = await runAnalyzeCommand(resolveVault(vaultPath));
     });
 
   program

@@ -45,6 +45,17 @@ describe("task-store", () => {
     expect(loaded[0]?.questions).toEqual(["What is the product?"]);
   });
 
+  it("round-trips a task's semantic origin through save/load", async () => {
+    const tasks = mergeTasks(
+      [],
+      [spec({ origin: "semantic", goal: "advisory work" })],
+      "2026-06-25T00:00:00.000Z",
+    );
+    await saveTasks(dir, tasks);
+    const loaded = await loadTasks(dir);
+    expect(loaded[0]?.origin).toBe("semantic");
+  });
+
   it("rejects a corrupt task file", async () => {
     await fs.writeFile(
       path.join(dir, "90 Meta", "tasks.json"),

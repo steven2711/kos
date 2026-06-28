@@ -42,6 +42,12 @@ export interface KosTask {
   dependencies: string[];
   /** Questions to put to the founder. Only set for `founder_interview` tasks. */
   questions?: string[] | undefined;
+  /**
+   * Provenance: `compiler` = required work derived from the deterministic
+   * analysis; `semantic` = advisory work proposed by the LLM Semantic Reviewer.
+   * Keeps "facts vs reasoning" visible in the task layer (see semantic-rules.ts).
+   */
+  origin?: "compiler" | "semantic" | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +63,7 @@ const KosTaskSchema = z.object({
   acceptanceCriteria: z.array(z.string()),
   dependencies: z.array(z.string()),
   questions: z.array(z.string()).optional(),
+  origin: z.enum(["compiler", "semantic"]).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
