@@ -68,6 +68,16 @@ describe("kos init", () => {
     await expect(
       fs.readFile(path.join(vaultDir, "Home.md"), "utf8"),
     ).resolves.toContain("# Home");
+    // The foundational ADRs ship under 06 Decisions/Foundational/ (recursive
+    // copy), leaving the user's top-level Decisions layer to themselves.
+    await expect(
+      fs.readFile(
+        path.join(vaultDir, "06 Decisions", "Foundational", "ADR-0000-adopt-knowledge-operating-system.md"),
+        "utf8",
+      ),
+    ).resolves.toBeTruthy();
+    const decisionsTop = await fs.readdir(path.join(vaultDir, "06 Decisions"));
+    expect(decisionsTop.filter((f) => /^ADR-/.test(f))).toEqual([]);
   });
 
   it("produces a freshly initialized vault that validates with zero errors", async () => {

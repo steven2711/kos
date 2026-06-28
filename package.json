@@ -7,7 +7,7 @@
     "kos": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"const{cpSync,existsSync}=require('fs');cpSync('src/workers/prompts','dist/workers/prompts',{recursive:true});const F=['00 Inbox','01 Kernel','02 Vision','03 Product','04 Domain','05 Architecture','06 Decisions','07 Research','08 Business','09 Roadmap','10 Operations','11 Proposals','90 Meta','99 Archive'];for(const f of F){if(existsSync(f))cpSync(f,'dist/templates/vault/'+f,{recursive:true})}if(existsSync('Home.md'))cpSync('Home.md','dist/templates/vault/Home.md')\"",
+    "build": "tsc -p tsconfig.json && node -e \"const{cpSync,existsSync,rmSync}=require('fs');rmSync('dist/templates',{recursive:true,force:true});rmSync('dist/workers/prompts',{recursive:true,force:true});cpSync('src/workers/prompts','dist/workers/prompts',{recursive:true});const F=['00 Inbox','01 Kernel','02 Vision','03 Product','04 Domain','05 Architecture','06 Decisions','07 Research','08 Business','09 Roadmap','10 Operations','11 Proposals','90 Meta','99 Archive'];for(const f of F){if(existsSync(f))cpSync(f,'dist/templates/vault/'+f,{recursive:true})}if(existsSync('Home.md'))cpSync('Home.md','dist/templates/vault/Home.md')\"",
     "kos": "tsx src/cli.ts",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",

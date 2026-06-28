@@ -49,6 +49,12 @@ Use `.` as `<vaultPath>` to operate on this repo's own vault. `init` is the exce
 *project* directory and creates the vault under `<projectDir>/vault`, so subsequent commands take
 `<projectDir>/vault` as their `<vaultPath>`.
 
+The two foundational KOS ADRs (`ADR-0000-adopt-knowledge-operating-system`,
+`ADR-0001-template-files-declare-produced-type`) ship under `06 Decisions/Foundational/` — they're
+inherited framework records the Kernel links to, kept out of the way so a project's own ADRs occupy the
+top level of `06 Decisions/` (continuing from `ADR-0002`). Wikilinks resolve by basename, so the
+subfolder is transparent to validation.
+
 Git hooks (husky, installed via the `prepare` script): **pre-commit** runs `lint-staged` (`eslint --fix` on staged `.ts`); **pre-push** runs the full `npm run check`. Bypass only in a real emergency with `--no-verify`.
 
 ## Architecture: the controlled loop
