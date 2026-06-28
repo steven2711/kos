@@ -51,10 +51,50 @@ const RESEARCH_REQUIRED_SECTIONS = [
   "Sources",
 ] as const;
 
+/**
+ * Knowledge proposals (v0.9) follow a review-oriented anatomy: what is proposed,
+ * where it lands, the evidence behind it, its impact, and the founder's decision.
+ * "Knowledge is reviewed, then promoted" — the structure makes the review legible.
+ */
+const PROPOSAL_REQUIRED_SECTIONS = [
+  "Purpose",
+  "Proposed Change",
+  "Target Document",
+  "Supporting Evidence",
+  "Source Research",
+  "Impact",
+  "Open Questions",
+  "Reviewer Notes",
+  "Decision",
+  "Related Documents",
+] as const;
+
 function requiredSectionsFor(type: unknown): readonly string[] {
   if (type === "adr") return ADR_REQUIRED_SECTIONS;
   if (type === "research") return RESEARCH_REQUIRED_SECTIONS;
+  if (type === "knowledge_proposal") return PROPOSAL_REQUIRED_SECTIONS;
   return REQUIRED_SECTIONS;
+}
+
+/**
+ * Frontmatter keys a knowledge proposal must carry so its provenance is always
+ * answerable — "why do we believe this, and where would it land?". The compiler
+ * checks they exist and that the target resolves; it never judges the *merits*
+ * of a proposal (that is the founder's call in `kos promote`).
+ */
+const PROPOSAL_PROVENANCE_KEYS = [
+  "claim",
+  "target_document",
+  "supporting_documents",
+] as const;
+
+/** Extract a resolvable target from a frontmatter value like `"[[Doc]]"`. */
+function frontmatterLinkTarget(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const inner = value.match(/\[\[([^\]]+?)\]\]/)?.[1] ?? value;
+  const first = inner.replace(/\\\|/g, "|").split("|")[0] ?? "";
+  const trimmed = first.trim();
+  return trimmed === "" ? null : trimmed;
 }
 
 /** Headings that satisfy the "Relationships" requirement (or its variants). */
@@ -162,6 +202,35 @@ function checkDocument(
         p,
       ),
     );
+  }
+
+  // --- Provenance (PROV-001) — knowledge proposals only. ---
+  if (doc.parsed.data.type === "knowledge_proposal") {
+    const fm = doc.parsed.data;
+    for (const key of PROPOSAL_PROVENANCE_KEYS) {
+      const v = fm[key];
+      const empty =
+        v === undefined ||
+        v === null ||
+        (typeof v === "string" && v.trim() === "") ||
+        (Array.isArray(v) && v.length === 0);
+      if (empty) {
+        issues.push(
+          issue("PROV-001", "ERROR", `proposal missing provenance "${key}"`, p),
+        );
+      }
+    }
+    const target = frontmatterLinkTarget(fm["target_document"]);
+    if (target !== null && !resolves(target, graph.index)) {
+      issues.push(
+        issue(
+          "PROV-001",
+          "ERROR",
+          `proposal target_document [[${target}]] does not resolve`,
+          p,
+        ),
+      );
+    }
   }
 
   // --- Five-link minimum (LNK-001) ---

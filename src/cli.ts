@@ -17,6 +17,7 @@ import { runIngestCommand } from "./commands/ingest.js";
 import { runCompileCommand } from "./commands/compile.js";
 import { runAnalyzeCommand } from "./commands/analyze.js";
 import { runResearchCommand } from "./commands/research.js";
+import { runPromoteCommand, type PromoteOptions } from "./commands/promote.js";
 import { runExplainCommand } from "./commands/explain.js";
 import { runRunCommand } from "./commands/run.js";
 
@@ -79,6 +80,37 @@ async function main(): Promise<void> {
     .action(async (vaultPath: string, query: string | undefined) => {
       process.exitCode = await runResearchCommand(resolveVault(vaultPath), query);
     });
+
+  program
+    .command("promote")
+    .argument("<vaultPath>", "path to the KOS vault")
+    .option("--proposal <id>", "review only this proposal id (P-NNN)")
+    .option("--approve", "approve every pending proposal (non-interactive)")
+    .option("--reject", "reject every pending proposal (non-interactive)")
+    .option("--request-changes", "request changes on every pending proposal")
+    .option("--yes", "alias for --approve")
+    .description(
+      "Review knowledge proposals; merge founder-approved changes into canonical docs",
+    )
+    .action(
+      async (
+        vaultPath: string,
+        options: {
+          proposal?: string;
+          approve?: boolean;
+          reject?: boolean;
+          requestChanges?: boolean;
+          yes?: boolean;
+        },
+      ) => {
+        const opts: PromoteOptions = {};
+        if (options.proposal !== undefined) opts.proposalId = options.proposal;
+        if (options.approve === true || options.yes === true) opts.decision = "approve";
+        else if (options.reject === true) opts.decision = "reject";
+        else if (options.requestChanges === true) opts.decision = "request_changes";
+        process.exitCode = await runPromoteCommand(resolveVault(vaultPath), opts);
+      },
+    );
 
   program
     .command("explain")

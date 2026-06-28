@@ -289,15 +289,27 @@ const RESEARCH_ROUTES: { type: TaskType; re: RegExp }[] = [
 ];
 
 /**
+ * A recommendation explicitly asking to elevate a finding into canonical
+ * knowledge. Routed to a `knowledge_proposal` (the founder decides via
+ * `kos promote`), but only after the research routes — gathering evidence
+ * precedes proposing its promotion.
+ */
+const PROMOTE_RE =
+  /\b(promote|proposal|canonical|formali[sz]e|adopt as|make .* official)/i;
+
+/**
  * Route an actionable recommendation to a task type. A finding that asks for
  * external evidence (competitors, market, legal, technical feasibility) becomes
- * the matching research task; otherwise it falls back to the cited-layer routing.
+ * the matching research task; one that asks to elevate a finding to canonical
+ * knowledge becomes a `knowledge_proposal`; otherwise it falls back to the
+ * cited-layer routing.
  */
 function recommendationType(finding: SemanticFinding): TaskType {
   const haystack = `${finding.title} ${finding.reasoning} ${finding.recommendedAction} ${finding.supportingDocuments.join(" ")}`;
   for (const route of RESEARCH_ROUTES) {
     if (route.re.test(haystack)) return route.type;
   }
+  if (PROMOTE_RE.test(haystack)) return "knowledge_proposal";
   const inLayer = (layer: string): boolean =>
     finding.supportingDocuments.some((d) => d.startsWith(layer));
   if (inLayer("05 Architecture")) return "architecture_research";
@@ -329,8 +341,34 @@ function semanticTaskSpec(finding: SemanticFinding): TaskSpec | null {
     finding.class === "recommendation" &&
     (finding.confidence === "medium" || finding.confidence === "high")
   ) {
+    const type = recommendationType(finding);
+
+    // A promotion recommendation carries the provenance a proposal needs: the
+    // claim, the target it would land in, and the documents that support it.
+    if (type === "knowledge_proposal") {
+      const target = finding.supportingDocuments[0];
+      if (target === undefined) return null; // nothing to promote into
+      return {
+        type,
+        status: "open",
+        priority: "low",
+        goal: `Propose promoting to canonical: ${finding.title}`,
+        inputs: finding.supportingDocuments,
+        expectedOutputs: ["A knowledge proposal under 11 Proposals/ for founder review"],
+        acceptanceCriteria: [
+          finding.recommendedAction,
+          "Founder reviews and decides the proposal",
+        ],
+        dependencies: [],
+        claim: finding.title,
+        targetDocument: target,
+        supportingDocuments: finding.supportingDocuments,
+        confidence: finding.confidence,
+      };
+    }
+
     return {
-      type: recommendationType(finding),
+      type,
       status: "open",
       priority: "low",
       goal: `Address a semantic recommendation involving ${label}`,

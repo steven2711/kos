@@ -199,6 +199,27 @@ describe("planner", () => {
     expect(deriveSemanticTasks(review)[0]?.type).toBe("legal_research");
   });
 
+  it("routes a recommendation to promote a finding into a knowledge_proposal task", () => {
+    const review = semanticReview([
+      semanticFinding({
+        class: "recommendation",
+        confidence: "high",
+        title: "Promote the pricing model to canonical",
+        reasoning: "The evidence consistently supports usage-based pricing.",
+        supportingDocuments: ["04 Domain/Pricing.md"],
+        recommendedAction: "Adopt this as canonical knowledge.",
+      }),
+    ]);
+    const t = deriveSemanticTasks(review)[0];
+    expect(t?.type).toBe("knowledge_proposal");
+    expect(t?.priority).toBe("low");
+    expect(t?.origin).toBe("semantic");
+    // It carries the provenance a proposal needs.
+    expect(t?.claim).toBe("Promote the pricing model to canonical");
+    expect(t?.targetDocument).toBe("04 Domain/Pricing.md");
+    expect(t?.confidence).toBe("high");
+  });
+
   it("leaves suggestions and low-confidence findings as report-only (no task)", () => {
     const review = semanticReview([
       semanticFinding({ class: "suggestion", confidence: "high" }),

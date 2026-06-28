@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { nextTaskId, taskKey, isResearchType } from "../tasks/task-model.js";
+import {
+  nextTaskId,
+  taskKey,
+  isResearchType,
+  isPromotionType,
+} from "../tasks/task-model.js";
 import { kosTask } from "./support/builders.js";
 
 describe("nextTaskId", () => {
@@ -63,5 +68,16 @@ describe("isResearchType", () => {
     // external-evidence research the Research Worker owns.
     expect(isResearchType("architecture_research")).toBe(false);
     expect(isResearchType("business_research")).toBe(false);
+    // A promotion task is not research.
+    expect(isResearchType("knowledge_proposal")).toBe(false);
+  });
+});
+
+describe("isPromotionType", () => {
+  it("is true only for knowledge_proposal", () => {
+    expect(isPromotionType("knowledge_proposal")).toBe(true);
+    expect(isPromotionType("research")).toBe(false);
+    expect(isPromotionType("domain_modeling")).toBe(false);
+    expect(isPromotionType("founder_interview")).toBe(false);
   });
 });

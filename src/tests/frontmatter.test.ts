@@ -4,6 +4,8 @@ import {
   checkFrontmatter,
   ALLOWED_TYPES,
   ALLOWED_STATUSES,
+  PROPOSAL_STATUSES,
+  statusesFor,
 } from "../core/frontmatter.js";
 
 const VALID = `---
@@ -94,6 +96,38 @@ status: draft
   it("flags a whitespace-only owner (FM-006)", () => {
     const raw = VALID.replace("owner: founder", 'owner: "   "');
     expect(check(raw).some((i) => i.ruleId === "FM-006")).toBe(true);
+  });
+
+  it("allows knowledge_proposal as a type with its own lifecycle status", () => {
+    const proposal = `---
+type: knowledge_proposal
+status: merged
+created: 2026-06-25
+updated: 2026-06-25
+owner: promotion-engine
+tags: [proposal]
+parents: ["[[Proposals Map]]"]
+children: []
+related: []
+---
+
+# P-001 - A claim`;
+    const issues = check(proposal);
+    expect(issues.some((i) => i.ruleId === "FM-003")).toBe(false); // type allowed
+    expect(issues.some((i) => i.ruleId === "FM-004")).toBe(false); // merged allowed for a proposal
+  });
+
+  it("rejects a proposal-only status on a canonical document (FM-004)", () => {
+    // `merged` is valid for a proposal but not for a canonical concept doc.
+    const raw = VALID.replace("status: canonical", "status: merged");
+    expect(check(raw).some((i) => i.ruleId === "FM-004")).toBe(true);
+  });
+
+  it("statusesFor is type-aware", () => {
+    expect(statusesFor("knowledge_proposal")).toBe(PROPOSAL_STATUSES);
+    expect(statusesFor("concept")).toBe(ALLOWED_STATUSES);
+    expect(PROPOSAL_STATUSES).toContain("merged");
+    expect(ALLOWED_STATUSES).not.toContain("merged");
   });
 
   it("exposes the canonical enums", () => {

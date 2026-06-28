@@ -79,6 +79,34 @@ describe("task-store", () => {
     expect(loaded[0]?.expectedResearchOutput).toBe("A competitor landscape doc");
   });
 
+  it("round-trips a knowledge_proposal task's provenance and origin", async () => {
+    const tasks = mergeTasks(
+      [],
+      [
+        spec({
+          type: "knowledge_proposal",
+          origin: "promotion",
+          goal: "Propose promoting to canonical: pricing",
+          claim: "Usage-based pricing beats seats",
+          targetDocument: "[[Pricing]]",
+          supportingDocuments: ["[[Runway Analysis]]", "[[Pricing]]"],
+          supportingSources: ["https://example.com/pricing"],
+          confidence: "high",
+        }),
+      ],
+      "2026-06-25T00:00:00.000Z",
+    );
+    await saveTasks(dir, tasks);
+    const loaded = await loadTasks(dir);
+    expect(loaded[0]?.type).toBe("knowledge_proposal");
+    expect(loaded[0]?.origin).toBe("promotion");
+    expect(loaded[0]?.claim).toBe("Usage-based pricing beats seats");
+    expect(loaded[0]?.targetDocument).toBe("[[Pricing]]");
+    expect(loaded[0]?.supportingDocuments).toEqual(["[[Runway Analysis]]", "[[Pricing]]"]);
+    expect(loaded[0]?.supportingSources).toEqual(["https://example.com/pricing"]);
+    expect(loaded[0]?.confidence).toBe("high");
+  });
+
   it("rejects a corrupt task file", async () => {
     await fs.writeFile(
       path.join(dir, "90 Meta", "tasks.json"),

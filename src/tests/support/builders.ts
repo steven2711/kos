@@ -59,6 +59,20 @@ export function researchTask(over: Partial<KosTask> = {}): KosTask {
   });
 }
 
+/** A `knowledge_proposal` `KosTask` with valid promotion provenance. */
+export function proposalTask(over: Partial<KosTask> = {}): KosTask {
+  return kosTask({
+    type: "knowledge_proposal",
+    origin: "semantic",
+    goal: "Propose promoting to canonical: a claim",
+    claim: "A is true",
+    targetDocument: "[[Target]]",
+    supportingDocuments: ["[[Target]]"],
+    confidence: "medium",
+    ...over,
+  });
+}
+
 /** A `SemanticFinding` with valid defaults (a medium-confidence observation). */
 export function semanticFinding(
   over: Partial<SemanticFinding> = {},

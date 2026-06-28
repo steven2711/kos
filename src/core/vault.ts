@@ -24,6 +24,7 @@ const VAULT_FOLDERS = [
   "08 Business",
   "09 Roadmap",
   "10 Operations",
+  "11 Proposals",
   "90 Meta",
   "99 Archive",
 ] as const;
@@ -43,11 +44,29 @@ export const KNOWLEDGE_LAYERS = [
   "09 Roadmap",
 ] as const;
 
-const KERNEL_FOLDER = "01 Kernel";
+export const KERNEL_FOLDER = "01 Kernel";
 const TEMPLATES_FOLDER = "01 Kernel/Templates";
 export const INBOX_FOLDER = "00 Inbox";
 export const META_FOLDER = "90 Meta";
 export const RESEARCH_FOLDER = "07 Research";
+export const PROPOSALS_FOLDER = "11 Proposals";
+
+/**
+ * The canonical knowledge layers — "company truth". These are the only folders
+ * the Promotion Engine may append an approved proposal into. Note `07 Research/`
+ * is deliberately excluded: research is immutable historical evidence, never a
+ * promotion target; and `01 Kernel/` is excluded — it is never mutated.
+ */
+export const CANONICAL_FOLDERS = [
+  "02 Vision",
+  "03 Product",
+  "04 Domain",
+  "05 Architecture",
+  "06 Decisions",
+  "08 Business",
+  "09 Roadmap",
+  "10 Operations",
+] as const;
 
 /**
  * Folders the Research Worker must never touch. It may write only `07 Research/`
@@ -78,6 +97,7 @@ const GENERATED_META_FILES = new Set([
   "Interview Log.md",
   "Semantic Report.md",
   "Research Report.md",
+  "Promotion Report.md",
 ]);
 
 export interface VaultDoc {

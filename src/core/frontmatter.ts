@@ -20,6 +20,7 @@ export const ALLOWED_TYPES = [
   "reference",
   "guide",
   "moc",
+  "knowledge_proposal",
 ] as const;
 
 export const ALLOWED_STATUSES = [
@@ -30,6 +31,27 @@ export const ALLOWED_STATUSES = [
   "deprecated",
   "archived",
 ] as const;
+
+/**
+ * Knowledge proposals have their own lifecycle, independent of the canonical
+ * document statuses above: a proposal is reviewed and decided, not "accepted"
+ * into the knowledge base as a document in its own right. Three of these values
+ * (`approved`, `rejected`, `merged`) are valid **only** on a `knowledge_proposal`
+ * — a canonical doc with `status: merged` still fails FM-004.
+ */
+export const PROPOSAL_STATUSES = [
+  "draft",
+  "review",
+  "approved",
+  "rejected",
+  "merged",
+  "archived",
+] as const;
+
+/** The set of statuses valid for a given document type (type-aware FM-004). */
+export function statusesFor(type: unknown): readonly string[] {
+  return type === "knowledge_proposal" ? PROPOSAL_STATUSES : ALLOWED_STATUSES;
+}
 
 const REQUIRED_KEYS = [
   "type",
@@ -44,7 +66,6 @@ const REQUIRED_KEYS = [
 ] as const;
 
 type DocType = (typeof ALLOWED_TYPES)[number];
-type DocStatus = (typeof ALLOWED_STATUSES)[number];
 
 interface Frontmatter {
   type?: string;
@@ -146,10 +167,10 @@ export function checkFrontmatter(
     );
   }
 
-  // FM-004 — status allowed.
+  // FM-004 — status allowed (type-aware: proposals have their own lifecycle).
   if (
     fm.status !== undefined &&
-    !ALLOWED_STATUSES.includes(fm.status as DocStatus)
+    !statusesFor(fm.type).includes(String(fm.status))
   ) {
     issues.push(
       issue("FM-004", "ERROR", `invalid status "${fm.status}"`, path),
