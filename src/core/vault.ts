@@ -12,7 +12,7 @@ import fg from "fast-glob";
 import { parseFile, type ParsedFile } from "./frontmatter.js";
 
 /** Top-level vault folders, in order. */
-const VAULT_FOLDERS = [
+export const VAULT_FOLDERS = [
   "00 Inbox",
   "01 Kernel",
   "02 Vision",
@@ -84,7 +84,7 @@ export const PROTECTED_RESEARCH_FOLDERS = VAULT_FOLDERS.filter(
  * vault knowledge, so document discovery skips them — the compiler must not
  * grade its own reports.
  */
-const GENERATED_META_FILES = new Set([
+export const GENERATED_META_FILES = new Set([
   "Validation Report.md",
   "Compiler Report.md",
   "Knowledge Score.md",

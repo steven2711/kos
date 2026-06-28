@@ -33,8 +33,10 @@ npx vitest run -t "computeScore is monotonic"
 CLI subcommands (the vault is always the first argument):
 
 ```bash
+npm run dev init     <projectDir>            # scaffold a new project: link-clean starter vault under <projectDir>/vault
 npm run dev validate <vaultPath>             # deterministic Kernel checks + Validation Report
 npm run dev ingest   <vaultPath> <inputFile> # copy input into 00 Inbox, seed 6 tasks
+npm run dev start    <vaultPath>             # one command: seed from 00 Inbox/, build to completion, review, report
 npm run dev compile  <vaultPath>             # validate + plan tasks + write reports
 npm run dev analyze  <vaultPath>             # LLM Semantic Reviewer → Semantic Report + advisory tasks
 npm run dev explain  <vaultPath>             # score, blockers, next task, remaining work
@@ -43,7 +45,9 @@ npm run dev research <vaultPath> [query]     # Research Worker → cited evidenc
 npm run dev promote  <vaultPath> [--proposal P-001 | --approve | --reject | --yes]  # founder review → merge
 ```
 
-Use `.` as `<vaultPath>` to operate on this repo's own vault.
+Use `.` as `<vaultPath>` to operate on this repo's own vault. `init` is the exception: it takes a
+*project* directory and creates the vault under `<projectDir>/vault`, so subsequent commands take
+`<projectDir>/vault` as their `<vaultPath>`.
 
 Git hooks (husky, installed via the `prepare` script): **pre-commit** runs `lint-staged` (`eslint --fix` on staged `.ts`); **pre-push** runs the full `npm run check`. Bypass only in a real emergency with `--no-verify`.
 

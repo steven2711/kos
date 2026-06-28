@@ -2,6 +2,7 @@
 /**
  * KOS CLI v0 entry point.
  *
+ *   kos init     <projectDir>
  *   kos validate <vaultPath>
  *   kos ingest   <vaultPath> <inputFile>
  *   kos start    <vaultPath>
@@ -13,6 +14,7 @@
  */
 import { Command } from "commander";
 import path from "node:path";
+import { runInitCommand, type InitOptions } from "./commands/init.js";
 import { runValidateCommand } from "./commands/validate.js";
 import { runIngestCommand } from "./commands/ingest.js";
 import { runStartCommand, type StartOptions } from "./commands/start.js";
@@ -33,6 +35,19 @@ async function main(): Promise<void> {
     .name("kos")
     .description("Knowledge Operating System CLI v0")
     .version("0.1.0");
+
+  program
+    .command("init")
+    .argument("<projectDir>", "directory for the new KOS project")
+    .option("--force", "re-scaffold even if a vault already exists there")
+    .description(
+      "Scaffold a new project: numbered folders + bundled Kernel under <projectDir>/vault",
+    )
+    .action(async (projectDir: string, options: { force?: boolean }) => {
+      const opts: InitOptions = {};
+      if (options.force === true) opts.force = true;
+      process.exitCode = await runInitCommand(resolveVault(projectDir), opts);
+    });
 
   program
     .command("validate")
