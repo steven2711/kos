@@ -13,6 +13,9 @@ import {
   removeTempVault,
   writeVaultFile,
 } from "./support/tmp-vault.js";
+import { silenceLoopNarration } from "./support/silence-console.js";
+
+silenceLoopNarration();
 
 let dir: string;
 beforeEach(async () => {
