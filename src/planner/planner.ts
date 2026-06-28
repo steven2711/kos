@@ -29,9 +29,15 @@ const DEPENDS_ON_TYPE: Partial<Record<TaskType, TaskType[]>> = {
   adr_creation: ["domain_modeling"],
 };
 
-/** The six initial tasks seeded by ingest, in priority order. */
-export function seedIngestTasks(inboxRelPath: string): TaskSpec[] {
-  const inputs = [inboxRelPath];
+/**
+ * The six initial tasks seeded by ingest, in priority order. Accepts either a
+ * single inbox path (one-file `ingest`) or the full set of inbox docs
+ * (`kos start`); every seed carries them all as `inputs`. The goals stay
+ * file-agnostic so `mergeTasks` dedupes the set to one copy regardless of how
+ * many docs were dropped in.
+ */
+export function seedIngestTasks(inputs: string | string[]): TaskSpec[] {
+  const inboxInputs = Array.isArray(inputs) ? inputs : [inputs];
   const mk = (
     type: TaskType,
     priority: Priority,
@@ -43,7 +49,7 @@ export function seedIngestTasks(inboxRelPath: string): TaskSpec[] {
     status: "open",
     priority,
     goal,
-    inputs,
+    inputs: inboxInputs,
     expectedOutputs,
     acceptanceCriteria,
     dependencies: [],

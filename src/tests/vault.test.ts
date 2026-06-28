@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   loadVault,
+  collectInboxDocs,
   snapshotKernel,
   kernelChanges,
   knowledgeLayerCoverage,
@@ -66,6 +67,32 @@ describe("loadVault classification", () => {
     expect(template?.inKernel).toBe(true);
 
     expect(find(docs, "04 Domain/Map.md")?.isNavigation).toBe(true);
+  });
+});
+
+describe("collectInboxDocs", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await makeTempVault("kos-inbox-");
+  });
+  afterEach(async () => {
+    await removeTempVault(dir);
+  });
+
+  it("returns top-level inbox docs, excluding _index and Interviews captures", async () => {
+    await writeVaultFile(dir, "00 Inbox/thesis.md", "# thesis\n");
+    await writeVaultFile(dir, "00 Inbox/research.md", "# research\n");
+    await writeVaultFile(dir, "00 Inbox/_index.md", "# Inbox\n");
+    await writeVaultFile(dir, "00 Inbox/Interviews/Interview-x.md", "# interview\n");
+
+    expect(await collectInboxDocs(dir)).toEqual([
+      "00 Inbox/research.md",
+      "00 Inbox/thesis.md",
+    ]);
+  });
+
+  it("returns an empty list when there are no inbox docs", async () => {
+    expect(await collectInboxDocs(dir)).toEqual([]);
   });
 });
 

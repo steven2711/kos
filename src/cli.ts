@@ -4,6 +4,7 @@
  *
  *   kos validate <vaultPath>
  *   kos ingest   <vaultPath> <inputFile>
+ *   kos start    <vaultPath>
  *   kos compile  <vaultPath>
  *   kos analyze  <vaultPath>
  *   kos research <vaultPath> [query]
@@ -14,6 +15,7 @@ import { Command } from "commander";
 import path from "node:path";
 import { runValidateCommand } from "./commands/validate.js";
 import { runIngestCommand } from "./commands/ingest.js";
+import { runStartCommand, type StartOptions } from "./commands/start.js";
 import { runCompileCommand } from "./commands/compile.js";
 import { runAnalyzeCommand } from "./commands/analyze.js";
 import { runResearchCommand } from "./commands/research.js";
@@ -51,6 +53,37 @@ async function main(): Promise<void> {
         path.resolve(inputFile),
       );
     });
+
+  program
+    .command("start")
+    .argument("<vaultPath>", "path to the KOS vault")
+    .option(
+      "--max-iterations <n>",
+      "cap the build loop (default: run to completion)",
+    )
+    .option("--no-analyze", "skip the semantic review after building")
+    .description(
+      "One command: seed tasks from 00 Inbox/, build to completion, review, and report",
+    )
+    .action(
+      async (
+        vaultPath: string,
+        options: { maxIterations?: string; analyze?: boolean },
+      ) => {
+        const opts: StartOptions = {};
+        if (options.maxIterations !== undefined) {
+          const max = parseInt(options.maxIterations, 10);
+          if (!Number.isFinite(max) || max < 1) {
+            console.error("--max-iterations must be a positive integer");
+            process.exitCode = 1;
+            return;
+          }
+          opts.maxIterations = max;
+        }
+        if (options.analyze === false) opts.analyze = false;
+        process.exitCode = await runStartCommand(resolveVault(vaultPath), opts);
+      },
+    );
 
   program
     .command("compile")

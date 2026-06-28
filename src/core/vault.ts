@@ -156,6 +156,26 @@ export async function loadVault(vaultPath: string): Promise<VaultDoc[]> {
   return docs;
 }
 
+/**
+ * Vault-relative paths of the authored input docs sitting in `00 Inbox/`:
+ * top-level `*.md` only, excluding the `Interviews/` capture subfolder and
+ * `_index.md`. Sorted for determinism; `[]` when the folder is absent. This is
+ * the drop zone `kos start` seeds tasks from.
+ */
+export async function collectInboxDocs(vaultPath: string): Promise<string[]> {
+  const root = path.resolve(vaultPath);
+  const entries = await fg(`${fg.escapePath(INBOX_FOLDER)}/*.md`, {
+    cwd: root,
+    onlyFiles: true,
+    dot: false,
+    caseSensitiveMatch: false,
+  });
+  return entries
+    .map((rel) => rel.split(path.sep).join("/"))
+    .filter((rel) => (rel.split("/").pop() ?? rel).toLowerCase() !== "_index.md")
+    .sort();
+}
+
 function buildDoc(
   rel: string,
   absPath: string,

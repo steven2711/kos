@@ -34,6 +34,17 @@ describe("planner", () => {
     for (const t of tasks) expect(t.dependencies).not.toContain(t.id);
   });
 
+  it("seeds one task set carrying every inbox doc as inputs", () => {
+    const docs = ["00 Inbox/thesis.md", "00 Inbox/research.md"];
+    const seeds = seedIngestTasks(docs);
+    // Generic goals mean the set is seeded once regardless of doc count...
+    expect(seeds.length).toBeGreaterThan(0);
+    // ...and every seed carries all the dropped docs for the worker to read.
+    for (const s of seeds) expect(s.inputs).toEqual(docs);
+    // The single-string form (one-file `ingest`) still works.
+    expect(seedIngestTasks("00 Inbox/x.md")[0]?.inputs).toEqual(["00 Inbox/x.md"]);
+  });
+
   it("is idempotent — recomputing yields the same dependencies", () => {
     const once = inferDependencies(
       mergeTasks([], seedIngestTasks("00 Inbox/x.md"), "t"),
