@@ -11,6 +11,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { KosTask } from "../tasks/task-model.js";
+import { loadVault, vaultBasenames } from "../core/vault.js";
 import { loadEnv } from "../config/env.js";
 
 /**
@@ -152,53 +153,75 @@ class ClaudeWorker implements Worker {
  * `04 Domain/` that satisfies the validator (valid frontmatter, required
  * sections, and 5 resolving wikilinks).
  */
+/** The knowledge layer each task type contributes to in the offline mock. */
+const MOCK_LAYER_BY_TYPE: Readonly<Record<string, string>> = {
+  vision_expansion: "02 Vision",
+  concept_extraction: "04 Domain",
+  domain_modeling: "04 Domain",
+  architecture_research: "05 Architecture",
+  adr_creation: "06 Decisions",
+  business_research: "08 Business",
+};
+const MOCK_DEFAULT_LAYER = "04 Domain";
+/** LNK-001 requires at least this many resolving wikilinks. */
+const MOCK_MIN_LINKS = 5;
+
 export class MockWorker implements Worker {
   readonly name = "mock";
 
   async runTask(req: WorkerRequest): Promise<WorkerResult> {
     const today = new Date().toISOString().slice(0, 10);
-    const title = `Generated Concept ${req.task.id}`;
-    const rel = path.join("04 Domain", `${title}.md`);
+    const title = `Generated ${req.task.id}`;
+    const folder = MOCK_LAYER_BY_TYPE[req.task.type] ?? MOCK_DEFAULT_LAYER;
+    const rel = path.join(folder, `${title}.md`);
     const abs = path.join(req.vaultPath, rel);
+
+    // Link only to documents that already exist, so the generated doc always
+    // passes LNK-003 (resolve) no matter how the vault is scaffolded. Cycle the
+    // pool to meet the LNK-001 minimum even when very few docs exist; the
+    // self-link fallback resolves once this file is written.
+    const existing = vaultBasenames(await loadVault(req.vaultPath))
+      .filter((b) => b !== title)
+      .sort();
+    const pool = existing.length > 0 ? existing : [title];
+    const links = Array.from(
+      { length: MOCK_MIN_LINKS },
+      (_, i) => pool[i % pool.length] ?? title,
+    );
+    const bullets = links.map((l) => `- [[${l}]]`).join("\n");
+    const inline = links.map((l) => `[[${l}]]`).join(" ");
+
     const content = `---
 type: concept
 status: draft
 created: ${today}
 updated: ${today}
 owner: kos-agent
-tags: [domain, generated]
-parents: ["[[Domain Map]]"]
+tags: [generated]
+parents: []
 children: []
-related: ["[[Knowledge Modeling Guide]]", "[[Linking Standards]]"]
+related: []
 ---
 
 # ${title}
 
-A placeholder concept produced by the offline mock worker for task ${req.task.id}.
+A placeholder document produced offline by the mock worker for task ${req.task.id} (${req.task.type}).
 
 ## Purpose
 
-Demonstrate that the controlled run loop can create a validator-passing document without calling the real model. See [[Home]] and the [[Constitution]].
+Demonstrate that the controlled loop can create a validator-passing document without calling the real model. See ${inline}.
 
 ## Context
 
-This document was generated to satisfy the task goal: "${req.task.goal}". It follows the [[Frontmatter Specification]] and [[Linking Standards]].
-
-## Related Concepts
-
-- [[Knowledge Graph]] — the network this concept would join.
+This document was generated to satisfy the task goal: "${req.task.goal}".
 
 ## Open Questions
 
-- Is this concept a duplicate of an existing canonical concept? (Mock placeholder.)
+- Is this a duplicate of an existing canonical document? (Mock placeholder.)
 
 ## Related Documents
 
-- [[Domain Map]]
-- [[Knowledge Modeling Guide]]
-- [[Linking Standards]]
-- [[Constitution]]
-- [[Home]]
+${bullets}
 `;
     await fs.mkdir(path.dirname(abs), { recursive: true });
     await fs.writeFile(abs, content, "utf8");

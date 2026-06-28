@@ -1,12 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { loadVault, snapshotKernel } from "../core/vault.js";
+import {
+  loadVault,
+  snapshotKernel,
+  KNOWLEDGE_LAYERS,
+} from "../core/vault.js";
 import { compileDocs } from "../core/compiler.js";
 import { runRunCommand } from "../commands/run.js";
 import { loadTasks } from "../tasks/task-store.js";
-import { MockWorker } from "../workers/claude.js";
-import { markdownDoc } from "./support/builders.js";
+import { MockWorker, type WorkerRequest } from "../workers/claude.js";
+import { markdownDoc, kosTask } from "./support/builders.js";
 import {
   makeTempVault,
   removeTempVault,
@@ -114,12 +118,39 @@ Only one link [[Does Not Exist]].
     const completed = tasks.filter((t) => t.status === "complete");
     expect(completed.length).toBe(1);
 
-    // The mock created exactly one new domain document.
-    const domain = await fs.readdir(path.join(dir, "04 Domain"));
-    expect(domain.some((f) => f.startsWith("Generated Concept"))).toBe(true);
+    // The mock created exactly one new document, in the selected task's layer.
+    const generated: string[] = [];
+    for (const layer of KNOWLEDGE_LAYERS) {
+      const files = await fs.readdir(path.join(dir, layer)).catch(() => []);
+      generated.push(...files.filter((f) => f.startsWith("Generated ")));
+    }
+    expect(generated).toHaveLength(1);
 
     // Kernel is byte-for-byte unchanged.
     const kernelAfter = await snapshotKernel(dir);
     expect([...kernelAfter.entries()]).toEqual([...kernelBefore.entries()]);
+  });
+
+  it("the offline mock worker writes a validator-passing doc in a sparse vault", async () => {
+    // No scaffolding beyond Home — the mock must still produce a doc whose
+    // links all resolve, in the layer matching the task type.
+    await write("Home.md", markdownDoc({ title: "Home" }));
+    const req: WorkerRequest = {
+      vaultPath: dir,
+      systemPrompt: "",
+      prompt: "",
+      allowedTools: [],
+      maxTurns: 1,
+      model: "mock",
+      task: kosTask({ type: "vision_expansion", goal: "fill the vision layer" }),
+    };
+
+    const result = await new MockWorker().runTask(req);
+    expect(result.success).toBe(true);
+
+    const { analysis } = compileDocs(await loadVault(dir));
+    expect(analysis.brokenLinks).toEqual([]); // every generated link resolves
+    const vision = await fs.readdir(path.join(dir, "02 Vision"));
+    expect(vision.some((f) => f.startsWith("Generated "))).toBe(true);
   });
 });
