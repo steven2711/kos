@@ -24,7 +24,14 @@ import {
 import { selectNextTask } from "../scheduler/scheduler.js";
 import { writeMetaFile, todayISO } from "../core/io.js";
 import { type KosTask } from "../tasks/task-model.js";
-import { type Worker, type WorkerRequest, selectWorker } from "../workers/claude.js";
+import {
+  type Worker,
+  type WorkerRequest,
+  type WorkerResult,
+  selectWorker,
+} from "../workers/claude.js";
+import { type Interviewer, selectInterviewer } from "../workers/interviewer.js";
+import { runFounderInterview } from "./interview.js";
 
 const ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"];
 const MAX_TURNS = 30;
@@ -54,6 +61,7 @@ async function refreshQueues(vaultPath: string, tasks: KosTask[]): Promise<void>
 export interface RunOptions {
   maxIterations: number;
   worker?: Worker; // injectable for tests
+  interviewer?: Interviewer; // injectable for tests
 }
 
 export async function runRunCommand(
@@ -61,9 +69,10 @@ export async function runRunCommand(
   opts: RunOptions,
 ): Promise<number> {
   const worker = opts.worker ?? selectWorker();
+  const interviewer = opts.interviewer ?? selectInterviewer();
   const template = await loadPromptTemplate();
   console.log(
-    `Starting controlled run: up to ${opts.maxIterations} iteration(s), worker=${worker.name}.`,
+    `Starting controlled run: up to ${opts.maxIterations} iteration(s), worker=${worker.name}, interviewer=${interviewer.name}.`,
   );
 
   for (let i = 1; i <= opts.maxIterations; i++) {
@@ -88,18 +97,24 @@ export async function runRunCommand(
     await saveTasks(vaultPath, tasks);
     const kernelBefore = await snapshotKernel(vaultPath);
 
-    // 4. Dispatch exactly one task to the worker.
-    const req: WorkerRequest = {
-      vaultPath,
-      systemPrompt:
-        "You are a careful KOS documentation contributor. Do only the assigned task. Never edit 01 Kernel/.",
-      prompt: renderPrompt(template, task),
-      allowedTools: ALLOWED_TOOLS,
-      maxTurns: MAX_TURNS,
-      model: MODEL,
-      task,
-    };
-    const workerResult = await worker.runTask(req);
+    // 4. Dispatch exactly one task. Founder interviews pause for human input
+    //    (never the SDK); every other task goes to the worker.
+    let workerResult: WorkerResult;
+    if (task.type === "founder_interview") {
+      workerResult = await runFounderInterview(vaultPath, task, interviewer);
+    } else {
+      const req: WorkerRequest = {
+        vaultPath,
+        systemPrompt:
+          "You are a careful KOS documentation contributor. Do only the assigned task. Never edit 01 Kernel/.",
+        prompt: renderPrompt(template, task),
+        allowedTools: ALLOWED_TOOLS,
+        maxTurns: MAX_TURNS,
+        model: MODEL,
+        task,
+      };
+      workerResult = await worker.runTask(req);
+    }
     if (workerResult.finalText) {
       const firstLine = workerResult.finalText.split("\n")[0] ?? "";
       console.log(`Worker: ${firstLine.slice(0, 200)}`);

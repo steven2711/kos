@@ -33,6 +33,18 @@ describe("task-store", () => {
     expect(loaded[0]?.goal).toBe("model something");
   });
 
+  it("round-trips a founder_interview task's questions through save/load", async () => {
+    const tasks = mergeTasks(
+      [],
+      [spec({ type: "founder_interview", questions: ["What is the product?"] })],
+      "2026-06-25T00:00:00.000Z",
+    );
+    await saveTasks(dir, tasks);
+    const loaded = await loadTasks(dir);
+    expect(loaded[0]?.type).toBe("founder_interview");
+    expect(loaded[0]?.questions).toEqual(["What is the product?"]);
+  });
+
   it("rejects a corrupt task file", async () => {
     await fs.writeFile(
       path.join(dir, "90 Meta", "tasks.json"),

@@ -21,6 +21,7 @@ const TASK_TYPES = [
   "documentation_repair",
   "link_repair",
   "adr_creation",
+  "founder_interview",
 ] as const;
 
 const PRIORITIES = ["low", "medium", "high", "critical"] as const;
@@ -39,6 +40,8 @@ export interface KosTask {
   expectedOutputs: string[];
   acceptanceCriteria: string[];
   dependencies: string[];
+  /** Questions to put to the founder. Only set for `founder_interview` tasks. */
+  questions?: string[] | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +56,7 @@ const KosTaskSchema = z.object({
   expectedOutputs: z.array(z.string()),
   acceptanceCriteria: z.array(z.string()),
   dependencies: z.array(z.string()),
+  questions: z.array(z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

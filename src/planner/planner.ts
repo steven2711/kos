@@ -142,6 +142,12 @@ export function deriveCompilerTasks(analysis: VaultAnalysis): KosTask[] {
     });
   }
 
+  // Founder interviews — human input only the founder can supply. Each trigger
+  // is gated on foundational layers already existing, so an empty vault (nothing
+  // to ask about yet) never produces one. Goal text is stable so dedupe by
+  // type+goal prevents re-asking once an interview is complete.
+  specs.push(...deriveFounderTasks(analysis));
+
   // Materialise with placeholder ids/timestamps; the store reassigns them.
   return specs.map((s, i) => ({
     ...s,
@@ -149,6 +155,82 @@ export function deriveCompilerTasks(analysis: VaultAnalysis): KosTask[] {
     createdAt: "",
     updatedAt: "",
   }));
+}
+
+/** Keywords that mark an open question as one only the founder can resolve. */
+const STRATEGIC_RE =
+  /\b(vision|intent|goal|strategy|strategic|assumption|decision|direction|priorit)/i;
+
+/** Cap on how many scraped open questions we surface in one interview task. */
+const MAX_SCRAPED_QUESTIONS = 8;
+
+/** Founder-interview specs derived from the compile analysis. */
+function deriveFounderTasks(analysis: VaultAnalysis): TaskSpec[] {
+  const specs: TaskSpec[] = [];
+  const missing = (layer: string): boolean => analysis.missingLayers.includes(layer);
+  const present = (layer: string): boolean => !missing(layer);
+
+  const mk = (goal: string, questions: string[]): TaskSpec => ({
+    type: "founder_interview",
+    status: "open",
+    priority: "medium",
+    goal,
+    inputs: [],
+    expectedOutputs: [
+      "00 Inbox/Interviews/Interview-<timestamp>.md capturing the founder's answers",
+    ],
+    acceptanceCriteria: ["Every question has a founder answer recorded"],
+    dependencies: [],
+    questions,
+  });
+
+  // Required product intent is missing (there is domain substance to anchor it).
+  if (present("04 Domain") && missing("03 Product")) {
+    specs.push(
+      mk("Capture founder product intent for the 03 Product layer", [
+        "What is the core product, in one sentence?",
+        "Who is the target user, and what problem does the product solve for them?",
+        "What does success look like 12 months from now?",
+      ]),
+    );
+  }
+
+  // Open questions that block major docs and need founder direction.
+  const strategic = analysis.openQuestions
+    .filter((q) => STRATEGIC_RE.test(q.text))
+    .slice(0, MAX_SCRAPED_QUESTIONS);
+  if (strategic.length > 0) {
+    specs.push(
+      mk(
+        "Resolve strategic open questions that require founder direction",
+        strategic.map((q) => `${q.text} (from ${q.path})`),
+      ),
+    );
+  }
+
+  // Business assumptions lack founder direction (business layer has substance).
+  if (present("08 Business") && strategic.length > 0) {
+    specs.push(
+      mk("Confirm founder direction on key business assumptions", [
+        "What is the primary revenue model?",
+        "Which business assumptions are you most and least confident about?",
+        "What are the biggest business risks you want tracked?",
+      ]),
+    );
+  }
+
+  // Architecture decisions require founder preference/tradeoff input.
+  if (present("04 Domain") && missing("06 Decisions")) {
+    specs.push(
+      mk("Capture founder preferences for key architecture decisions", [
+        "How do you weigh speed of delivery vs. long-term simplicity?",
+        "How do you weigh cost vs. performance for core infrastructure?",
+        "For major capabilities, do you prefer to build or to buy?",
+      ]),
+    );
+  }
+
+  return specs;
 }
 
 function layerTaskMeta(layer: string): { type: TaskType; priority: Priority } {

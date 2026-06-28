@@ -62,6 +62,8 @@ const GENERATED_META_FILES = new Set([
   "Open Task Queue.md",
   "Task Graph.md",
   "Execution Plan.md",
+  "Founder Questions.md",
+  "Interview Log.md",
 ]);
 
 export interface VaultDoc {

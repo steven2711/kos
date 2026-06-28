@@ -66,6 +66,71 @@ describe("planner", () => {
     expect(types).toContain("adr_creation"); // 06 Decisions
   });
 
+  it("asks the founder for product intent once domain substance exists", () => {
+    const analysis: VaultAnalysis = {
+      missingLayers: ["03 Product", "06 Decisions"], // 04 Domain present
+      openQuestions: [],
+      brokenLinks: [],
+      orphans: [],
+      coverage: { covered: 1, total: 8, perLayer: {} },
+    };
+    const founder = deriveCompilerTasks(analysis).filter(
+      (t) => t.type === "founder_interview",
+    );
+    // Product-intent and architecture-preference interviews, each with questions.
+    expect(founder.length).toBeGreaterThanOrEqual(1);
+    expect(
+      founder.some((t) => /product intent/i.test(t.goal)),
+    ).toBe(true);
+    for (const t of founder) {
+      expect((t.questions ?? []).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("never interviews the founder about an empty vault with no layers yet", () => {
+    const analysis: VaultAnalysis = {
+      missingLayers: [
+        "02 Vision",
+        "03 Product",
+        "04 Domain",
+        "05 Architecture",
+        "06 Decisions",
+        "07 Research",
+        "08 Business",
+        "09 Roadmap",
+      ],
+      openQuestions: [],
+      brokenLinks: [],
+      orphans: [],
+      coverage: { covered: 0, total: 8, perLayer: {} },
+    };
+    const founder = deriveCompilerTasks(analysis).filter(
+      (t) => t.type === "founder_interview",
+    );
+    expect(founder).toHaveLength(0);
+  });
+
+  it("turns strategic open questions into a founder interview", () => {
+    const analysis: VaultAnalysis = {
+      missingLayers: ["02 Vision"],
+      openQuestions: [
+        { text: "What is our pricing strategy?", path: "08 Business/Map.md" },
+        { text: "How is the build script structured?", path: "04 Domain/X.md" },
+      ],
+      brokenLinks: [],
+      orphans: [],
+      coverage: { covered: 7, total: 8, perLayer: {} },
+    };
+    const founder = deriveCompilerTasks(analysis).filter(
+      (t) => t.type === "founder_interview",
+    );
+    const strategic = founder.find((t) => /strategic open questions/i.test(t.goal));
+    expect(strategic).toBeDefined();
+    // Only the strategy question is surfaced; the build-script one is not founder work.
+    expect(strategic?.questions?.some((q) => /pricing strategy/i.test(q))).toBe(true);
+    expect(strategic?.questions?.some((q) => /build script/i.test(q))).toBe(false);
+  });
+
   it("compiler no longer returns tasks (read-only)", () => {
     const result = compileDocs([]);
     expect("tasks" in result).toBe(false);

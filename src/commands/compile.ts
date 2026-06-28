@@ -22,6 +22,7 @@ import {
 } from "../planner/planner.js";
 import { executionPlan } from "../scheduler/scheduler.js";
 import { type KosTask } from "../tasks/task-model.js";
+import { writeInterviewProjections } from "./interview.js";
 
 export interface CompileOutput {
   result: CompilerResult;
@@ -75,6 +76,8 @@ export async function compileAndPersist(
     "Execution Plan.md",
     renderExecutionPlan(plan, day),
   );
+  // Founder-interview projections: pending questions + captured interview log.
+  await writeInterviewProjections(vaultPath, tasks, day);
 
   if (opts.quiet !== true) {
     console.log(
